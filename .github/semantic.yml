@@ -69,4 +69,4 @@ types:
   - ci
   - chore
   - revert
-  - release
+  - release # our original type
