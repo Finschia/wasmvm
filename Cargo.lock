@@ -158,9 +158,8 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "cosmwasm-std"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8094ec41a0d81bfad7318da6ca1ac8e207bd4c806cf5529ba743ede0015912ad"
+version = "0.12.0-0.1.0"
+source = "git+ssh://git@github.com/line/cosmwasm#70008c002da07dd6ae737f6a796e41e2485561ac"
 dependencies = [
  "base64",
  "schemars",
@@ -171,9 +170,8 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "317c3edaab4b597e8dc81f8e8f6aa158e646fde86ad21112d806aeba4f4f1c9c"
+version = "0.12.0-0.1.0"
+source = "git+ssh://git@github.com/line/cosmwasm#70008c002da07dd6ae737f6a796e41e2485561ac"
 dependencies = [
  "clru",
  "cosmwasm-std",
@@ -1130,7 +1128,7 @@ checksum = "aeb1956b19469d1c5e63e459d29e7b5aa0f558d9f16fcef09736f8a265e6c10a"
 
 [[package]]
 name = "wasmvm"
-version = "0.12.0"
+version = "0.12.0-0.1.0"
 dependencies = [
  "cbindgen",
  "cosmwasm-std",
