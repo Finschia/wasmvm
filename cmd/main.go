@@ -9,7 +9,8 @@ import (
 
 const SUPPORTED_FEATURES = "staking"
 const PRINT_DEBUG = true
-const CACHE_SIZE = 100 // MiB
+const MEMORY_LIMIT = 32 // MiB
+const CACHE_SIZE = 100  // MiB
 
 // This is just a demo to ensure we can compile a static go binary
 func main() {
@@ -22,16 +23,16 @@ func main() {
 	fmt.Println("Loaded!")
 
 	os.MkdirAll("tmp", 0755)
-	vm, err := wasmvm.NewVM("tmp", SUPPORTED_FEATURES, PRINT_DEBUG, CACHE_SIZE)
+	vm, err := wasmvm.NewVM("tmp", SUPPORTED_FEATURES, MEMORY_LIMIT, PRINT_DEBUG, CACHE_SIZE)
 	if err != nil {
 		panic(err)
 	}
 
-	id, err := vm.Create(bz)
+	checksum, err := vm.Create(bz)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Got code id: %X\n", id)
+	fmt.Printf("Stored code with checksum: %X\n", checksum)
 
 	vm.Cleanup()
 	fmt.Println("finished")
