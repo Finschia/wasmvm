@@ -42,21 +42,58 @@ func MockEnvBin(t *testing.T) []byte {
 func MockInfo(sender types.HumanAddress, funds []types.Coin) types.MessageInfo {
 	return types.MessageInfo{
 		Sender: sender,
-		SentFunds: funds,
+		Funds:  funds,
 	}
 }
 
 func MockInfoWithFunds(sender types.HumanAddress) types.MessageInfo {
 	return MockInfo(sender, []types.Coin{{
-			Denom:  "ATOM",
-			Amount: "100",
-		}})
+		Denom:  "ATOM",
+		Amount: "100",
+	}})
 }
 
 func MockInfoBin(t *testing.T, sender types.HumanAddress) []byte {
 	bin, err := json.Marshal(MockInfoWithFunds(sender))
 	require.NoError(t, err)
 	return bin
+}
+
+func MockIBCChannel(channelID string, ordering types.IBCOrder, ibcVersion string) types.IBCChannel {
+	return types.IBCChannel{
+		Endpoint: types.IBCEndpoint{
+			PortID:    "my_port",
+			ChannelID: channelID,
+		},
+		CounterpartyEndpoint: types.IBCEndpoint{
+			PortID:    "their_port",
+			ChannelID: "channel-7",
+		},
+		Order:               ordering,
+		Version:             ibcVersion,
+		CounterpartyVersion: ibcVersion,
+		ConnectionID:        "connection-3",
+	}
+}
+
+func MockIBCPacket(myChannel string, data []byte) types.IBCPacket {
+	return types.IBCPacket{
+		Data: data,
+		Src: types.IBCEndpoint{
+			PortID:    "their_port",
+			ChannelID: "channel-7",
+		},
+		Dest: types.IBCEndpoint{
+			PortID:    "my_port",
+			ChannelID: myChannel,
+		},
+		Sequence: 15,
+		TimeoutBlock: &types.IBCTimeoutBlock{
+			Revision: 1,
+			Height:   123456,
+		},
+		TimeoutTimestamp: nil,
+	}
 }
 
 /*** Mock GasMeter ****/

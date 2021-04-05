@@ -1,25 +1,24 @@
-version: 2
+version: 2.1
 
 jobs:
-  # All checks on the codebase that can run in parallel to build_library
+  # All checks on the codebase that can run in parallel to build_shared_library
   sanity:
     docker:
-      # We don't use this Rust version but need an image with a Rust environment
-      - image: circleci/rust:1.47.0-buster
+      - image: circleci/rust:1.50.0-buster
     steps:
       - checkout
       - run:
           name: Install shellcheck
           command: sudo apt install shellcheck
       - run:
-          name: Setup Rust toolchain from ./rust-toolchain
-          command: echo "RUSTUP_TOOLCHAIN=$RUSTUP_TOOLCHAIN" && rustup show
-      - run:
           name: Show version information
           command: rustc --version; cargo --version; rustup --version
       - run:
           name: Add Rust components
           command: rustup component add clippy rustfmt
+      - restore_cache:
+          keys:
+            - cargocache-v2-sanity-rust:1.50.0-{{ checksum "Cargo.lock" }}
       - run:
           name: Check formatting
           command: cargo fmt -- --check
@@ -30,21 +29,38 @@ jobs:
           name: Run unit tests
           command: cargo test
       - run:
+          name: Build docs
+          command: cargo doc --no-deps
+      - run:
+          name: Test docs
+          command: |
+            sed -i  '/^crate-type = \["cdylib"\]/d' Cargo.toml
+            cargo test --doc
+      - run:
           name: Run shellcheck
           command: find . -name "*.sh" -exec shellcheck {} +
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
+          key: cargocache-v2-sanity-rust:1.50.0-{{ checksum "Cargo.lock" }}
 
-  build_library:
+  build_shared_library:
     docker:
-      # We don't use this Rust version but need an image with a Rust environment
-      - image: circleci/rust:1.47.0-buster
+      - image: circleci/rust:1.50.0-buster
     steps:
       - checkout
       - run:
-          name: Setup Rust toolchain from ./rust-toolchain
-          command: echo "RUSTUP_TOOLCHAIN=$RUSTUP_TOOLCHAIN" && rustup show
-      - run:
           name: Show version information
           command: rustc --version; cargo --version; rustup --version
+      - restore_cache:
+          keys:
+            - cargocache-v2-build_shared_library-rust:1.50.0-{{ checksum "Cargo.lock" }}
       - run:
           name: Create release build of libwasmvm
           command: make build-rust
@@ -52,11 +68,21 @@ jobs:
           root: ./api
           paths:
             - libwasmvm.so
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
+          key: cargocache-v2-build_shared_library-rust:1.50.0-{{ checksum "Cargo.lock" }}
 
   test:
     working_directory: /go/src/github.com/CosmWasm/wasmvm
     docker:
-      - image: circleci/golang:1.14
+      - image: circleci/golang:1.15
     environment:
       GORACE: "halt_on_error=1"
       BUILD_VERSION: $(echo ${CIRCLE_SHA1} | cut -c 1-10)
@@ -77,9 +103,6 @@ jobs:
     machine:
       image: ubuntu-1604:202010-01
     steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "31:de:e5:84:1b:12:81:94:aa:06:50:c0:cb:bd:79:f0"
       - checkout
       - run: make test-alpine
       - run:
@@ -92,6 +115,8 @@ jobs:
     steps:
       - add_ssh_keys:
           fingerprints:
+            # Custom read/write deployment key with private key stored on CircleCI
+            # (see https://app.circleci.com/settings/project/github/CosmWasm/wasmvm/ssh and https://github.com/CosmWasm/wasmvm/settings/keys)
             - "31:de:e5:84:1b:12:81:94:aa:06:50:c0:cb:bd:79:f0"
       - checkout
       - run:
@@ -104,10 +129,12 @@ jobs:
           name: Debug build results
           command: ls -l ./api
       - run:
-          name: Configure git
+          name: Configure git user
+          # This is not a GitHub user and no permissions can be configured other than "push access", which
+          # we can configure for Deploy keys at https://github.com/CosmWasm/wasmvm/settings/keys
           command: |
-            git config user.email "bot@circleci.com"
-            git config user.name "CircleCI Bot"
+            git config user.email "wasmvm@circleci.confio.example.com"
+            git config user.name "Deployer"
       - run:
           name: Check-in and push new libraries
           command: |
@@ -116,16 +143,11 @@ jobs:
             git commit --allow-empty -m '[skip ci] Built release libraries'
             git push origin $CIRCLE_BRANCH
 
-  deploy_to_github_releases:
+  build_static_lib:
     machine:
       image: ubuntu-1604:202010-01
     steps:
       - checkout
-      - run:
-          name: Install ghr
-          command: |
-            go get github.com/tcnksm/ghr
-            ghr --version
       - run:
           name: Build static library for Alpine
           command: make release-build-alpine
@@ -141,28 +163,54 @@ jobs:
           name: Create checksums
           working_directory: artifacts
           command: sha256sum * > checksums.txt && cat checksums.txt
-      - run:
-          name: Publish artifacts on GitHub
-          command: |
-            TAG="$CIRCLE_TAG"
-            TITLE="$TAG"
-            BODY="Build artifacts generated at this tag."
-            ghr -t "$GITHUB_TOKEN" \
-              -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" \
-              -c "$CIRCLE_SHA1" \
-              -n "$TITLE" -b "$BODY" \
-              -delete \
-              "$TAG" ./artifacts/
+      - store_artifacts:
+          path: artifacts
+      # Deploy to GitHub releases on tag builds
+      - when:
+          condition: << pipeline.git.tag >>
+          steps:
+            - run:
+                name: Install ghr
+                command: |
+                  go get github.com/tcnksm/ghr
+                  ghr --version
+            - run:
+                name: Publish artifacts on GitHub
+                command: |
+                  TAG="$CIRCLE_TAG"
+                  TITLE="$TAG"
+                  BODY="Build artifacts generated at this tag."
+                  ghr -t "$GITHUB_TOKEN" \
+                    -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" \
+                    -c "$CIRCLE_SHA1" \
+                    -n "$TITLE" -b "$BODY" \
+                    -delete \
+                    "$TAG" ./artifacts/
 
 workflows:
   version: 2
   build_and_test:
     jobs:
       - sanity
-      - build_library
+      - build_shared_library:
+          filters: # required since other jobs with tag filters require this one
+            tags:
+              only: /.*/
       - test:
           requires:
-            - build_library
+            - build_shared_library
+      - build_static_lib:
+          requires:
+            - build_shared_library
+          filters:
+            # tags and branches are OR combined
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+.*/
+            branches:
+              only:
+                # long living branches
+                - main
+                - 0.14-dev
       # This is long running, so only double-check on merge commits
       # ensures that all code works on alpine linux
       - test_alpine_build:
@@ -172,8 +220,10 @@ workflows:
                 - /.*/
             branches:
               only:
-                - master
-      # Run only on master, not on tags (auto-build on merge PR)
+                # long living branches
+                - main
+                - 0.14-dev
+      # Run only on main, not on tags (auto-build on merge PR)
       - deploy_to_git:
           requires:
             - sanity
@@ -184,10 +234,4 @@ workflows:
                 - /.*/
             branches:
               only:
-                - master
-      - deploy_to_github_releases:
-          filters:
-            tags:
-              only: /^v[0-9]+\.[0-9]+\.[0-9]+.*/
-            branches:
-              ignore: /.*/
+                - main
