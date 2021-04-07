@@ -9,7 +9,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 #  https://github.com/rust-lang/docker-rust-nightly/blob/master/alpine3.12/Dockerfile
 # with some changes to support our toolchain, etc
 RUN set -eux; \
-    apk add --no-cache \
+    apk add --no-cache git \
     ca-certificates \
     build-base;
 
