@@ -1,6 +1,6 @@
 .PHONY: all build build-rust build-go test
 
-BUILDERS_PREFIX := cosmwasm/go-ext-builder:0003
+BUILDERS_PREFIX := cosmwasm/go-ext-builder:0005
 USER_ID := $(shell id -u)
 USER_GROUP = $(shell id -g)
 
@@ -25,14 +25,15 @@ build: build-rust build-go
 # build-rust: build-rust-release strip
 build-rust: build-rust-release
 
-# use debug build for quick testing
+# Use debug build for quick testing.
+# In order to use "--features backtraces" here we need a Rust nightly toolchain, which we don't have by default
 build-rust-debug:
-	cargo build --features backtraces
+	cargo build
 	cp target/debug/libwasmvm.$(DLL_EXT) api
 
 # use release build to actually ship - smaller and much faster
 build-rust-release:
-	cargo build --release --features backtraces
+	cargo build --release
 	cp target/release/libwasmvm.$(DLL_EXT) api
 	@ #this pulls out ELF symbols, 80% size reduction!
 
@@ -54,24 +55,24 @@ test:
 test-safety:
 	GODEBUG=cgocheck=2 go test -race -v -count 1 ./api
 
-# Created a release build in a containerized build environment of the static library for Alpine Linux (.a)
+# Creates a release build in a containerized build environment of the static library for Alpine Linux (.a)
 release-build-alpine:
 	rm -rf target/release
 	# build the muslc *.a file
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code $(BUILDERS_PREFIX)-alpine
+	docker run --rm -v $(shell pwd):/code -e GITHUB_TOKEN=${GITHUB_TOKEN} $(BUILDERS_PREFIX)-alpine
 	# try running go tests using this lib with muslc
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags muslc .
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags muslc . 
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go test -tags muslc ./api ./types
 
-# Created a release build in a containerized build environment of the shared library for glibc Linux (.so)
+# Creates a release build in a containerized build environment of the shared library for glibc Linux (.so)
 release-build-linux:
 	rm -rf target/release
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code $(BUILDERS_PREFIX)-centos7
+	docker run --rm -v $(shell pwd):/code -e GITHUB_TOKEN=${GITHUB_TOKEN} $(BUILDERS_PREFIX)-centos7
 
-# Created a release build in a containerized build environment of the shared library for macOS (.dylib)
+# Creates a release build in a containerized build environment of the shared library for macOS (.dylib)
 release-build-macos:
 	rm -rf target/release
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code $(BUILDERS_PREFIX)-cross
+	docker run --rm -v $(shell pwd):/code -e GITHUB_TOKEN=${GITHUB_TOKEN} $(BUILDERS_PREFIX)-cross
 
 release-build:
 	# Write like this because those must not run in parallal
