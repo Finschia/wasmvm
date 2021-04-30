@@ -42,8 +42,6 @@ import (
 	"reflect"
 	"unsafe"
 
-	dbm "github.com/tendermint/tm-db"
-
 	"github.com/CosmWasm/wasmvm/types"
 )
 
@@ -100,12 +98,37 @@ type KVStore interface {
 	// Start must be less than end, or the Iterator is invalid.
 	// Iterator must be closed by caller.
 	// To iterate over entire domain, use store.Iterator(nil, nil)
-	Iterator(start, end []byte) dbm.Iterator
+	Iterator(start, end []byte) Iterator
 
 	// Iterator over a domain of keys in descending order. End is exclusive.
 	// Start must be less than end, or the Iterator is invalid.
 	// Iterator must be closed by caller.
-	ReverseIterator(start, end []byte) dbm.Iterator
+	ReverseIterator(start, end []byte) Iterator
+}
+
+// Iterator copies a subset of types from cosmos-sdk
+type Iterator interface {
+	// Valid returns whether the current iterator is valid. Once invalid, the Iterator remains
+	// invalid forever.
+	Valid() bool
+
+	// Next moves the iterator to the next key in the database, as defined by order of iteration.
+	// If Valid returns false, this method will panic.
+	Next()
+
+	// Key returns the key at the current position. Panics if the iterator is invalid.
+	// CONTRACT: key readonly []byte
+	Key() (key []byte)
+
+	// Value returns the value at the current position. Panics if the iterator is invalid.
+	// CONTRACT: value readonly []byte
+	Value() (value []byte)
+
+	// Error returns the last error encountered by the iterator, if any.
+	Error() error
+
+	// Close closes the iterator, releasing any allocated resources.
+	Close() error
 }
 
 var db_vtable = C.DB_vtable{
@@ -148,7 +171,7 @@ var iterator_vtable = C.Iterator_vtable{
 
 // contract: original pointer/struct referenced must live longer than C.DB struct
 // since this is only used internally, we can verify the code that this is the case
-func buildIterator(dbCounter uint64, it dbm.Iterator) C.iterator_t {
+func buildIterator(dbCounter uint64, it Iterator) C.iterator_t {
 	idx := storeIterator(dbCounter, it)
 	return C.iterator_t{
 		db_counter:     cu64(dbCounter),
@@ -251,7 +274,7 @@ func cScan(ptr *C.db_t, gasMeter *C.gas_meter_t, usedGas *C.uint64_t, start C.U8
 	s := copyU8Slice(start)
 	e := copyU8Slice(end)
 
-	var iter dbm.Iterator
+	var iter Iterator
 	gasBefore := gm.GasConsumed()
 	switch order {
 	case 1: // Ascending
