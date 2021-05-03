@@ -1,6 +1,15 @@
 # CHANGELOG LINK
 This is CHANGELOG after this repository was forked from CosmWasm/wasmvm.
 
+## 0.14.0-0.4.0
+## Changes
+- Define own iterator interface spec (#15)
+
+  **BREAKING CHANGE**
+
+  The implementation of KVStore now must return a newly defined iterator rather than the `tm-db` defines.
+
+
 ## 0.14.0-0.3.0
 ## Changes
 - Update upstream Cosmwasm/wasmvm version to 0.14.0-beta1 (#8)
