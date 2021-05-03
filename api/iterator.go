@@ -1,12 +1,11 @@
 package api
 
 import (
-	dbm "github.com/tendermint/tm-db"
 	"sync"
 )
 
 // frame stores all Iterators for one contract
-type frame []dbm.Iterator
+type frame []Iterator
 
 // iteratorStack contains one frame for each contract, indexed by a counter
 // 10 is a rather arbitrary guess on how many frames might be needed simultaneously
@@ -42,14 +41,14 @@ func endContract(counter uint64) {
 	remove := popFrame(counter)
 	// free all iterators in the frame when we release it
 	for _, iter := range remove {
-		iter.Close()
+		_ = iter.Close()
 	}
 }
 
 // storeIterator will add this to the end of the latest stack and return a reference to it.
 // We start counting with 1, so the 0 value is flagged as an error. This means we must
 // remember to do idx-1 when retrieving
-func storeIterator(dbCounter uint64, it dbm.Iterator) uint64 {
+func storeIterator(dbCounter uint64, it Iterator) uint64 {
 	iteratorStackMutex.Lock()
 	defer iteratorStackMutex.Unlock()
 
@@ -61,7 +60,7 @@ func storeIterator(dbCounter uint64, it dbm.Iterator) uint64 {
 // retrieveIterator will recover an iterator based on index. This ensures it will not be garbage collected.
 // We start counting with 1, in storeIterator so the 0 value is flagged as an error. This means we must
 // remember to do idx-1 when retrieving
-func retrieveIterator(dbCounter uint64, index uint64) dbm.Iterator {
+func retrieveIterator(dbCounter uint64, index uint64) Iterator {
 	iteratorStackMutex.Lock()
 	defer iteratorStackMutex.Unlock()
 	return iteratorStack[dbCounter][index-1]

@@ -17,6 +17,8 @@ type WasmCode []byte
 // KVStore is a reference to some sub-kvstore that is valid for one instance of a code
 type KVStore = api.KVStore
 
+type Iterator = api.Iterator
+
 // GoAPI is a reference to some "precompiles", go callbacks
 type GoAPI = api.GoAPI
 
