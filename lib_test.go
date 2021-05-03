@@ -1,13 +1,16 @@
+// +build mocks
+
 package cosmwasm
 
 import (
+	"io/ioutil"
+	"os"
+	"testing"
+
 	"github.com/CosmWasm/wasmvm/api"
 	"github.com/CosmWasm/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"os"
-	"testing"
 )
 
 const TESTING_FEATURES = "staking,stargate"
