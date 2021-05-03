@@ -50,10 +50,10 @@ build-go:
 	go build ./...
 
 test:
-	RUST_BACKTRACE=1 go test -v ./api ./types .
+	RUST_BACKTRACE=1 go test -v ./api ./types . -tags mocks
 
 test-safety:
-	GODEBUG=cgocheck=2 go test -race -v -count 1 ./api
+	GODEBUG=cgocheck=2 go test -race -v -count 1 ./api -tags mocks
 
 # Creates a release build in a containerized build environment of the static library for Alpine Linux (.a)
 release-build-alpine:
@@ -62,7 +62,7 @@ release-build-alpine:
 	docker run --rm -v $(shell pwd):/code -e GITHUB_TOKEN=${GITHUB_TOKEN} $(BUILDERS_PREFIX)-alpine
 	# try running go tests using this lib with muslc
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags muslc . 
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go test -tags muslc ./api ./types
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go test -tags='muslc mocks' ./api ./types
 
 # Creates a release build in a containerized build environment of the shared library for glibc Linux (.so)
 release-build-linux:
@@ -82,7 +82,7 @@ release-build:
 
 test-alpine: release-build-alpine
 	# build a go binary
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags muslc -o muslc.exe ./cmd
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags='muslc mocks' -o muslc.exe ./cmd
 	# run static binary in an alpine machines (not dlls)
 	docker run --rm --read-only -v $(shell pwd):/code -w /code alpine:3.12 ./muslc.exe ./api/testdata/hackatom.wasm
 	docker run --rm --read-only -v $(shell pwd):/code -w /code alpine:3.11 ./muslc.exe ./api/testdata/hackatom.wasm

@@ -1,13 +1,16 @@
+// +build mocks
+
 package cosmwasm
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"testing"
+
 	"github.com/CosmWasm/wasmvm/api"
 	"github.com/CosmWasm/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"testing"
 )
 
 const IBC_TEST_CONTRACT = "./api/testdata/ibc_reflect.wasm"

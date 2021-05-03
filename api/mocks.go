@@ -1,3 +1,5 @@
+// +build mocks
+
 package api
 
 import (
