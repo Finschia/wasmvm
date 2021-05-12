@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/CosmWasm/wasmvm/types"
+	"github.com/line/wasmvm/types"
 )
 
 // Value types
