@@ -42,7 +42,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/CosmWasm/wasmvm/types"
+	"github.com/line/wasmvm/types"
 )
 
 // Note: we have to include all exports in the same file (at least since they both import bindings.h),
