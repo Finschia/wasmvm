@@ -1,6 +1,13 @@
 # CHANGELOG LINK
 This is CHANGELOG after this repository was forked from CosmWasm/wasmvm.
 
+## 0.14.0-0.5.0
+### Changes
+- Change the module uri from github.com/CosmWasm/wasmvm to github.com/link/wasmvm (#23)
+
+### Fixed
+- Fix CHANGELOG-LINK.md's section levels (#24)
+
 ## 0.14.0-0.4.0
 ### Changes
 - Define own iterator interface spec (#15)
