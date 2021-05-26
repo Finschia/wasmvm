@@ -82,7 +82,6 @@ jobs:
     env:
       GORACE: "halt_on_error=1"
       BUILD_VERSION: $(echo $GITHUB_SHA | cut -c 1-10)
-      working-directory: /go/src/github.com/CosmWasm/wasmvm
     steps:
       - name: set up
         uses: actions/setup-go@v2
