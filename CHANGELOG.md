@@ -1,28 +1,52 @@
-# CHANGELOG
+# Changelog
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [[v0.14.0-0.5.0](https://github.com/line/wasmvm/compare/v0.14.0-0.4.0...v0.14.0-0.5.0)] - 2021-05-12
 
-### Added
+### Changes
 
-- Add Submessages and Subcall types ([#197])
-- Add WasmMsg::Migrate message type ([#197])
-- Add IBC and Stargate message types ([#167], [#174])
-- Expose IBC entry points and AnalyzeCode ([#167], [#174])
+* Change the module uri from github.com/CosmWasm/wasmvm to github.com/link/wasmvm ([#23](https://github.com/line/wasmvm/issues/23))
 
-[#167]: https://github.com/CosmWasm/wasmvm/pull/167
-[#174]: https://github.com/CosmWasm/wasmvm/pull/174
-[#197]: https://github.com/CosmWasm/wasmvm/pull/197
 
-### Changed
+## [[v0.14.0-0.4.0](https://github.com/line/wasmvm/compare/v0.14.0-0.3.0...v0.14.0-0.4.0)] - 2021-05-03
 
-- Renamed the Go type `CodeID` to `Checksum` to clarify the difference between
-  the numeric code ID assigned by x/wasm and the hash used to identify it in the cache.
-- Update required Rust version in build scripts to 1.50 ([#197])
+### Changes
 
-## 0.13.0
+* change cargo use to tag from the version ([#17](https://github.com/line/wasmvm/issues/17))
 
-This is a baseline... no CHANGELOG was maintained until this point
+### Code Refactoring
+
+* add build tag 'mocks' ([#16](https://github.com/line/wasmvm/issues/16))
+* define own iterator interface spec ([#15](https://github.com/line/wasmvm/issues/15))
+
+  **BREAKING CHANGE**
+
+  The implementation of KVStore now must return a newly defined iterator rather than the `tm-db` defines.
+
+
+## [[v0.14.0-0.3.0](https://github.com/line/wasmvm/compare/v0.12.0-0.1.0...v0.14.0-0.3.0)] - 2021-04-08
+
+### Changes
+* Update upstream Cosmwasm/wasmvm version to 0.14.0-beta1 (#8)
+  - Please refer [CHANGELOG_OF_WASMVM_v0.14.0-beta1](https://github.com/CosmWasm/wasmvm/blob/v0.14.0-beta1/CHANGELOG.md)
+* Update the depended line/cosmwasm version to 0.14.0-0.3.0 (#8)
+* Adjust semantic PR validation rule (#9)
+
+
+## [0.12.0-0.1.0] - 2021-02-15
+
+### Add
+* Add semantic.yml for semantic pull request (#6)
+* Add CHANGELOG-LINK.md (#3)
+
+### Changes
+* Change the depended CosmWasm/cosmwasm to line/cosmwasm (#3)
+
+
+## [wasmvm v0.12.0] - 2021-02-04
+Initial code is based on the wasmvm v0.12.0, cosmwasm v0.12.0
+
+* (wasmvm) [v0.12.0](https://github.com/CosmWasm/wasmvm/releases/tag/v0.12.0).
+* (cosmwasm) [v0.12.0](https://github.com/CosmWasm/cosmwasm/releases/tag/v0.12.0).
+
+Please refer [CHANGELOG_OF_WASMVM_v0.12.0](https://github.com/CosmWasm/wasmvm/releases?after=v0.13.0)
