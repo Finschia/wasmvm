@@ -10,7 +10,7 @@ fi
 tag="$1"
 
 for contract in hackatom queue reflect ibc_reflect ; do
-  url="https://github.com/CosmWasm/cosmwasm/releases/download/$tag/$contract.wasm"
+  url="https://github.com/line/cosmwasm/releases/download/$tag/$contract.wasm"
   echo "Downloading $url ..."
   wget -O "$contract.wasm" "$url"
 done
