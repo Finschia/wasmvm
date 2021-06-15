@@ -1,8 +1,8 @@
 [package]
 name = "wasmvm"
-version = "0.14.0-0.4.0"
+version = "0.14.0-0.5.0"
 publish = false
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
+authors = ["LINE TECH PLUS Pte., Ltd."]
 edition = "2018"
 description = "Go bindings for cosmwasm contracts"
 repository = "https://github.com/line/wasmvm"
@@ -22,7 +22,6 @@ crate-type = ["staticlib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [badges]
-circle-ci = { repository = "line/wasmvm", branch = "develop" }
 maintenance = { status = "actively-developed" }
 
 [features]

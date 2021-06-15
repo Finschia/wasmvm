@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	wasmvm "github.com/CosmWasm/wasmvm"
+	wasmvm "github.com/line/wasmvm"
 	"io/ioutil"
 	"os"
 )

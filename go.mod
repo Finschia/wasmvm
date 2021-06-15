@@ -1,4 +1,4 @@
-module github.com/CosmWasm/wasmvm
+module github.com/line/wasmvm
 
 go 1.15
 

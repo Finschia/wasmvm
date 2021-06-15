@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/CosmWasm/wasmvm/types"
+	"github.com/line/wasmvm/types"
 )
 
 func TestCanonicalAddressFailure(t *testing.T) {
