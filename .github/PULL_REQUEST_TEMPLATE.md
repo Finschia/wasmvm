@@ -24,4 +24,4 @@ Closes #0
 - [ ] I followed the [contributing guidelines](https://github.com/line/wasmvm/blob/master/CONTRIBUTING.md).
 - [ ] I have updated the documentation accordingly.
 - [ ] I have added tests to cover my changes.
-- [ ] The PR title and commits are followed [conventional commit form](https://www.conventionalcommits.org/en/v1.0.0)
+- [ ] The PR title and commits are followed [conventional commit form](https://www.conventionalcommits.org/en/v1.0.0).
