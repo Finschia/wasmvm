@@ -14,7 +14,7 @@ type ContractResult struct {
 }
 
 // Response defines the return value on a successful instantiate/execute/migrate.
-// This is the counterpart of [Response](https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/packages/std/src/results/response.rs#L73-L88)
+// This is the counterpart of `Response` in https://github.com/line/cosmwasm/blob/develop/packages/std/src/results/response.rs .
 type Response struct {
 	// Submessages are like Messages, but they guarantee a reply to the calling contract
 	// after their execution, and return both success and error rather than auto-failing on error
@@ -74,7 +74,7 @@ type BankMsg struct {
 	Send *SendMsg `json:"send,omitempty"`
 }
 
-// SendMsg contains instructions for a Cosmos-SDK/SendMsg
+// SendMsg contains instructions for a lfb-sdk/SendMsg
 // It has a fixed interface here and should be converted into the proper SDK format before dispatching
 type SendMsg struct {
 	ToAddress string `json:"to_address"`
@@ -179,7 +179,7 @@ type ExecuteMsg struct {
 // InstantiateMsg will create a new contract instance from a previously uploaded CodeID.
 // This allows one contract to spawn "sub-contracts".
 type InstantiateMsg struct {
-	// CodeID is the reference to the wasm byte code as used by the Cosmos-SDK
+	// CodeID is the reference to the wasm byte code as used by the lbm-sdk
 	CodeID uint64 `json:"code_id"`
 	// Msg is assumed to be a json-encoded message, which will be passed directly
 	// as `userMsg` when calling `Init` on a new contract with the above-defined CodeID
