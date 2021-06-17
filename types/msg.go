@@ -14,7 +14,7 @@ type ContractResult struct {
 }
 
 // Response defines the return value on a successful instantiate/execute/migrate.
-// This is the counterpart of `Response` in https://github.com/line/cosmwasm/blob/develop/packages/std/src/results/response.rs .
+// This is the counterpart of `Response` in https://github.com/line/cosmwasm/blob/main/packages/std/src/results/response.rs .
 type Response struct {
 	// Submessages are like Messages, but they guarantee a reply to the calling contract
 	// after their execution, and return both success and error rather than auto-failing on error

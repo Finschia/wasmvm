@@ -81,7 +81,7 @@ type IBCBasicResult struct {
 }
 
 // IBCBasicResponse defines the return value on a successful processing.
-// This is the counterpart of `IbcBasicResponse` in https://github.com/line/cosmwasm/blob/develop/packages/std/src/ibc.rs .
+// This is the counterpart of `IbcBasicResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCBasicResponse struct {
 	// Submessages are like Messages, but they guarantee a reply to the calling contract
 	// after their execution, and return both success and error rather than auto-failing on error
@@ -109,7 +109,7 @@ type IBCReceiveResult struct {
 // Where the Acknowledgement bytes contain an encoded error message to be returned to
 // the calling chain. (Returning IBCReceiveResult::Err will abort processing of this packet
 // and not inform the calling chain).
-// This is the counterpart of `IbcReceiveResponse` in https://github.com/line/cosmwasm/blob/develop/packages/std/src/ibc.rs .
+// This is the counterpart of `IbcReceiveResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCReceiveResponse struct {
 	// binary encoded data to be returned to calling chain as the acknowledgement
 	Acknowledgement []byte `json:"acknowledgement"`
