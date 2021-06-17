@@ -114,7 +114,7 @@ type AllBalancesResponse struct {
 }
 
 // IBCQuery defines a query request from the contract into the chain.
-// This is the counterpart of [IbcQuery](https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/packages/std/src/ibc.rs#L61-L83).
+// This is the counterpart of `IbcQuery` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCQuery struct {
 	PortID       *PortIDQuery       `json:"port_id,omitempty"`
 	ListChannels *ListChannelsQuery `json:"list_channels,omitempty"`
@@ -130,7 +130,7 @@ type PortIDResponse struct {
 // ListChannelsQuery is an IBCQuery that lists all channels that are bound to a given port.
 // If `PortID` is unset, this list all channels bound to the contract's port.
 // Returns a `ListChannelsResponse`.
-// This is the counterpart of [IbcQuery::ListChannels](https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/packages/std/src/ibc.rs#L70-L73).
+// This is the counterpart of `IbcQuery::ListChannels` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type ListChannelsQuery struct {
 	// optional argument
 	PortID string `json:"port_id,omitempty"`
@@ -320,7 +320,7 @@ type BondedDenomResponse struct {
 // The response is also protobuf encoded. The caller is responsible for compiling the proper protobuf definitions
 type StargateQuery struct {
 	// this is the fully qualified service path used for routing,
-	// eg. custom/cosmos_sdk.x.bank.v1.Query/QueryBalance
+	// eg. custom/lfb_sdk.x.bank.v1.Query/QueryBalance
 	Path string `json:"path"`
 	// this is the expected protobuf message type (not any), binary encoded
 	Data []byte `json:"data"`
