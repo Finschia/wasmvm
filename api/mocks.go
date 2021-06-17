@@ -99,7 +99,7 @@ func MockIBCPacket(myChannel string, data []byte) types.IBCPacket {
 }
 
 /*** Mock GasMeter ****/
-// This code is borrowed from Cosmos-SDK store/types/gas.go
+// This code is borrowed from lfb-sdk store/types/gas.go
 
 // ErrorOutOfGas defines an error thrown when an action results in out of gas.
 type ErrorOutOfGas struct {
@@ -163,7 +163,7 @@ func (g *mockGasMeter) ConsumeGas(amount Gas, descriptor string) {
 }
 
 /*** Mock KVStore ****/
-// Much of this code is borrowed from Cosmos-SDK store/transient.go
+// Much of this code is borrowed from lfb-sdk store/transient.go
 
 // Note: these gas prices are all in *wasmer gas* and (sdk gas * 100)
 //
