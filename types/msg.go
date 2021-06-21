@@ -179,7 +179,7 @@ type ExecuteMsg struct {
 // InstantiateMsg will create a new contract instance from a previously uploaded CodeID.
 // This allows one contract to spawn "sub-contracts".
 type InstantiateMsg struct {
-	// CodeID is the reference to the wasm byte code as used by the lbm-sdk
+	// CodeID is the reference to the wasm byte code as used by the lfb-sdk
 	CodeID uint64 `json:"code_id"`
 	// Msg is assumed to be a json-encoded message, which will be passed directly
 	// as `userMsg` when calling `Init` on a new contract with the above-defined CodeID
