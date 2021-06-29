@@ -114,7 +114,7 @@ type AllBalancesResponse struct {
 }
 
 // IBCQuery defines a query request from the contract into the chain.
-// This is the counterpart of [IbcQuery](https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/packages/std/src/ibc.rs#L61-L83).
+// This is the counterpart of [IbcQuery](https://github.com/line/cosmwasm/blob/v0.14.0-0.4.0/packages/std/src/ibc.rs#L61-L83).
 type IBCQuery struct {
 	PortID       *PortIDQuery       `json:"port_id,omitempty"`
 	ListChannels *ListChannelsQuery `json:"list_channels,omitempty"`
@@ -130,7 +130,7 @@ type PortIDResponse struct {
 // ListChannelsQuery is an IBCQuery that lists all channels that are bound to a given port.
 // If `PortID` is unset, this list all channels bound to the contract's port.
 // Returns a `ListChannelsResponse`.
-// This is the counterpart of [IbcQuery::ListChannels](https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/packages/std/src/ibc.rs#L70-L73).
+// This is the counterpart of [IbcQuery::ListChannels](https://github.com/line/cosmwasm/blob/v0.14.0-0.4.0/packages/std/src/ibc.rs#L70-L73).
 type ListChannelsQuery struct {
 	// optional argument
 	PortID string `json:"port_id,omitempty"`
