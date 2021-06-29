@@ -62,16 +62,18 @@ type EventAttribute struct {
 // CosmosMsg is an rust enum and only (exactly) one of the fields should be set
 // Should we do a cleaner approach in Go? (type/data?)
 type CosmosMsg struct {
-	Bank     *BankMsg        `json:"bank,omitempty"`
-	Custom   json.RawMessage `json:"custom,omitempty"`
-	IBC      *IBCMsg         `json:"ibc,omitempty"`
-	Staking  *StakingMsg     `json:"staking,omitempty"`
-	Stargate *StargateMsg    `json:"stargate,omitempty"`
-	Wasm     *WasmMsg        `json:"wasm,omitempty"`
+	Bank         *BankMsg         `json:"bank,omitempty"`
+	Custom       json.RawMessage  `json:"custom,omitempty"`
+	Distribution *DistributionMsg `json:"distribution,omitempty"`
+	IBC          *IBCMsg          `json:"ibc,omitempty"`
+	Staking      *StakingMsg      `json:"staking,omitempty"`
+	Stargate     *StargateMsg     `json:"stargate,omitempty"`
+	Wasm         *WasmMsg         `json:"wasm,omitempty"`
 }
 
 type BankMsg struct {
 	Send *SendMsg `json:"send,omitempty"`
+	Burn *BurnMsg `json:"burn,omitempty"`
 }
 
 // SendMsg contains instructions for a Cosmos-SDK/SendMsg
@@ -81,6 +83,13 @@ type SendMsg struct {
 	Amount    Coins  `json:"amount"`
 }
 
+// BurnMsg will burn the given coins from the contract's account.
+// There is no Cosmos SDK message that performs this, but it can be done by calling the bank keeper.
+// Important if a contract controls significant token supply that must be retired.
+type BurnMsg struct {
+	Amount Coins `json:"amount"`
+}
+
 type IBCMsg struct {
 	Transfer     *TransferMsg     `json:"transfer,omitempty"`
 	SendPacket   *SendPacketMsg   `json:"send_packet,omitempty"`
@@ -88,28 +97,16 @@ type IBCMsg struct {
 }
 
 type TransferMsg struct {
-	ChannelID string `json:"channel_id"`
-	ToAddress string `json:"to_address"`
-	Amount    Coin   `json:"amount"`
-	// block after which the packet times out.
-	// at least one of timeout_block, timeout_timestamp is required
-	TimeoutBlock *IBCTimeoutBlock `json:"timeout_block,omitempty"`
-	// Nanoseconds since UNIX epoch
-	// See https://golang.org/pkg/time/#Time.UnixNano
-	// at least one of timeout_block, timeout_timestamp is required
-	TimeoutTimestamp *uint64 `json:"timeout_timestamp,omitempty"`
+	ChannelID string     `json:"channel_id"`
+	ToAddress string     `json:"to_address"`
+	Amount    Coin       `json:"amount"`
+	Timeout   IBCTimeout `json:"timeout"`
 }
 
 type SendPacketMsg struct {
-	ChannelID string `json:"channel_id"`
-	Data      []byte `json:"data"`
-	// block after which the packet times out.
-	// at least one of timeout_block, timeout_timestamp is required
-	TimeoutBlock *IBCTimeoutBlock `json:"timeout_block,omitempty"`
-	// Nanoseconds since UNIX epoch
-	// See https://golang.org/pkg/time/#Time.UnixNano
-	// at least one of timeout_block, timeout_timestamp is required
-	TimeoutTimestamp *uint64 `json:"timeout_timestamp,omitempty"`
+	ChannelID string     `json:"channel_id"`
+	Data      []byte     `json:"data"`
+	Timeout   IBCTimeout `json:"timeout"`
 }
 
 type CloseChannelMsg struct {
@@ -120,7 +117,6 @@ type StakingMsg struct {
 	Delegate   *DelegateMsg   `json:"delegate,omitempty"`
 	Undelegate *UndelegateMsg `json:"undelegate,omitempty"`
 	Redelegate *RedelegateMsg `json:"redelegate,omitempty"`
-	Withdraw   *WithdrawMsg   `json:"withdraw,omitempty"`
 }
 
 type DelegateMsg struct {
@@ -139,10 +135,23 @@ type RedelegateMsg struct {
 	Amount       Coin   `json:"amount"`
 }
 
-type WithdrawMsg struct {
+type DistributionMsg struct {
+	SetWithdrawAddress      *SetWithdrawAddressMsg      `json:"set_withdraw_address,omitempty"`
+	WithdrawDelegatorReward *WithdrawDelegatorRewardMsg `json:"withdraw_delegator_reward,omitempty"`
+}
+
+// SetWithdrawAddressMsg is translated to a [MsgSetWithdrawAddress](https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto#L29-L37).
+// `delegator_address` is automatically filled with the current contract's address.
+type SetWithdrawAddressMsg struct {
+	// Address contains the `delegator_address` of a MsgSetWithdrawAddress
+	Address string `json:"address"`
+}
+
+// WithdrawDelegatorRewardMsg is translated to a [MsgWithdrawDelegatorReward](https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto#L42-L50).
+// `delegator_address` is automatically filled with the current contract's address.
+type WithdrawDelegatorRewardMsg struct {
+	// Validator contains `validator_address` of a MsgWithdrawDelegatorReward
 	Validator string `json:"validator"`
-	// this is optional
-	Recipient string `json:"recipient,omitempty"`
 }
 
 // StargateMsg is encoded the same way as a protobof [Any](https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/any.proto).
@@ -156,6 +165,8 @@ type WasmMsg struct {
 	Execute     *ExecuteMsg     `json:"execute,omitempty"`
 	Instantiate *InstantiateMsg `json:"instantiate,omitempty"`
 	Migrate     *MigrateMsg     `json:"migrate,omitempty"`
+	UpdateAdmin *UpdateAdminMsg `json:"update_admin,omitempty"`
+	ClearAdmin  *ClearAdminMsg  `json:"clear_admin,omitempty"`
 }
 
 // ExecuteMsg is used to call another defined contract on this chain.
@@ -188,6 +199,8 @@ type InstantiateMsg struct {
 	Send Coins `json:"send"`
 	// Label is optional metadata to be stored with a contract instance.
 	Label string `json:"label"`
+	// Admin (optional) may be set here to allow future migrations from this address
+	Admin string `json:"admin,omitempty"`
 }
 
 // MigrateMsg will migrate an existing contract from it's current wasm code (logic)
@@ -201,4 +214,20 @@ type MigrateMsg struct {
 	// Msg is assumed to be a json-encoded message, which will be passed directly
 	// as `userMsg` when calling `Migrate` on the above-defined contract
 	Msg []byte `json:"msg"`
+}
+
+// UpdateAdminMsg is the Go counterpart of WasmMsg::UpdateAdmin
+// (https://github.com/CosmWasm/cosmwasm/blob/v0.14.0-beta5/packages/std/src/results/cosmos_msg.rs#L158-L160).
+type UpdateAdminMsg struct {
+	// ContractAddr is the sdk.AccAddress of the target contract.
+	ContractAddr string `json:"contract_addr"`
+	// Admin is the sdk.AccAddress of the new admin.
+	Admin string `json:"admin"`
+}
+
+// ClearAdminMsg is the Go counterpart of WasmMsg::ClearAdmin
+// (https://github.com/CosmWasm/cosmwasm/blob/v0.14.0-beta5/packages/std/src/results/cosmos_msg.rs#L158-L160).
+type ClearAdminMsg struct {
+	// ContractAddr is the sdk.AccAddress of the target contract.
+	ContractAddr string `json:"contract_addr"`
 }

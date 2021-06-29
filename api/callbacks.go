@@ -131,7 +131,7 @@ type Iterator interface {
 	Close() error
 }
 
-var db_vtable = C.DB_vtable{
+var db_vtable = C.Db_vtable{
 	read_db:   (C.read_db_fn)(C.cGet_cgo),
 	write_db:  (C.write_db_fn)(C.cSet_cgo),
 	remove_db: (C.remove_db_fn)(C.cDelete_cgo),
@@ -144,7 +144,7 @@ type DBState struct {
 	IteratorStackID uint64
 }
 
-// use this to create C.DB in two steps, so the pointer lives as long as the calling stack
+// use this to create C.Db in two steps, so the pointer lives as long as the calling stack
 //   state := buildDBState(kv, counter)
 //   db := buildDB(&state, &gasMeter)
 //   // then pass db into some FFI function
@@ -155,10 +155,10 @@ func buildDBState(kv KVStore, counter uint64) DBState {
 	}
 }
 
-// contract: original pointer/struct referenced must live longer than C.DB struct
+// contract: original pointer/struct referenced must live longer than C.Db struct
 // since this is only used internally, we can verify the code that this is the case
-func buildDB(state *DBState, gm *GasMeter) C.DB {
-	return C.DB{
+func buildDB(state *DBState, gm *GasMeter) C.Db {
+	return C.Db{
 		gas_meter: (*C.gas_meter_t)(unsafe.Pointer(gm)),
 		state:     (*C.db_t)(unsafe.Pointer(state)),
 		vtable:    db_vtable,
@@ -169,7 +169,7 @@ var iterator_vtable = C.Iterator_vtable{
 	next_db: (C.next_db_fn)(C.cNext_cgo),
 }
 
-// contract: original pointer/struct referenced must live longer than C.DB struct
+// contract: original pointer/struct referenced must live longer than C.Db struct
 // since this is only used internally, we can verify the code that this is the case
 func buildIterator(dbCounter uint64, it Iterator) C.iterator_t {
 	idx := storeIterator(dbCounter, it)

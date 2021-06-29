@@ -41,18 +41,19 @@ func (t IBCTimeoutBlock) IsZero() bool {
 	return t.Revision == 0 && t.Height == 0
 }
 
+// IBCTimeout is the timeout for an IBC packet. At least one of block and timestamp is required.
+type IBCTimeout struct {
+	Block *IBCTimeoutBlock `json:"block"`
+	// Nanoseconds since UNIX epoch
+	Timestamp uint64 `json:"timestamp,string,omitempty"`
+}
+
 type IBCPacket struct {
 	Data     []byte      `json:"data"`
 	Src      IBCEndpoint `json:"src"`
 	Dest     IBCEndpoint `json:"dest"`
 	Sequence uint64      `json:"sequence"`
-	// block after which the packet times out.
-	// at least one of timeout_block, timeout_timestamp is required
-	TimeoutBlock *IBCTimeoutBlock `json:"timeout_block,omitempty"`
-	// Nanoseconds since UNIX epoch
-	// See https://golang.org/pkg/time/#Time.UnixNano
-	// at least one of timeout_block, timeout_timestamp is required
-	TimeoutTimestamp *uint64 `json:"timeout_timestamp,omitempty"`
+	Timeout  IBCTimeout  `json:"timeout"`
 }
 
 type IBCAcknowledgement struct {
