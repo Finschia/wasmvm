@@ -43,7 +43,7 @@ jobs:
             sed -i  '/^crate-type = \["cdylib"\]/d' Cargo.toml
             cargo test --doc
       - name: Run shellcheck
-        run: find . -name "*.sh" -exec shellcheck {} +
+        run: ./devtools/check_shellscript_lint.sh
 
   format-go:
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Run shellcheck
-        run: find . -name "*.sh" -exec shellcheck {} +
+        run: ./devtools/check_shellscript_lint.sh
 
   build_shared_library:
     runs-on: ubuntu-latest
