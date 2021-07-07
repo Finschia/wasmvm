@@ -50,7 +50,7 @@ import (
 
 func recoverPanic(ret *C.GoResult) {
 	rec := recover()
-	// we don't want to import cosmos-sdk
+	// we don't want to import lfb-sdk
 	// we also cannot use interfaces to detect these error types (as they have no methods)
 	// so, let's just rely on the descriptive names
 	// this is used to detect "out of gas panics"
@@ -58,13 +58,14 @@ func recoverPanic(ret *C.GoResult) {
 		name := reflect.TypeOf(rec).Name()
 		switch name {
 		// These two cases are for types thrown in panics from this module:
-		// https://github.com/cosmos/cosmos-sdk/blob/4ffabb65a5c07dbb7010da397535d10927d298c1/store/types/gas.go
+		// https://github.com/line/lfb-sdk/blob/main/store/types/gas.go
 		// ErrorOutOfGas needs to be propagated through the rust code and back into go code, where it should
 		// probably be thrown in a panic again.
 		// TODO figure out how to pass the text in its `Descriptor` field through all the FFI
 		// TODO handle these cases on the Rust side in the first place
 		case "ErrorOutOfGas":
 			*ret = C.GoResult_OutOfGas
+		// Outdated comment? (https://github.com/CosmWasm/wasmvm/issues/221)
 		// Looks like this error is not treated specially upstream:
 		// https://github.com/cosmos/cosmos-sdk/blob/4ffabb65a5c07dbb7010da397535d10927d298c1/baseapp/baseapp.go#L818-L853
 		// but this needs to be periodically verified, in case they do start checking for this type
@@ -78,17 +79,17 @@ func recoverPanic(ret *C.GoResult) {
 
 type Gas = uint64
 
-// GasMeter is a copy of an interface declaration from cosmos-sdk
-// https://github.com/cosmos/cosmos-sdk/blob/18890a225b46260a9adc587be6fa1cc2aff101cd/store/types/gas.go#L34
+// GasMeter is a copy of an interface declaration from lfb-sdk
+// Defined in https://github.com/line/lfb-sdk/blob/main/store/types/gas.go
 type GasMeter interface {
 	GasConsumed() Gas
 }
 
 /****** DB ********/
 
-// KVStore copies a subset of types from cosmos-sdk
+// KVStore copies a subset of types from lfb-sdk
 // We may wish to make this more generic sometime in the future, but not now
-// https://github.com/cosmos/cosmos-sdk/blob/bef3689245bab591d7d169abd6bea52db97a70c7/store/types/store.go#L170
+// Original KVStore is defined in https://github.com/line/lfb-sdk/blob/main/store/types/store.go
 type KVStore interface {
 	Get(key []byte) []byte
 	Set(key, value []byte)
@@ -106,7 +107,7 @@ type KVStore interface {
 	ReverseIterator(start, end []byte) Iterator
 }
 
-// Iterator copies a subset of types from cosmos-sdk
+// Iterator copies a subset of types from lfb-sdk
 type Iterator interface {
 	// Valid returns whether the current iterator is valid. Once invalid, the Iterator remains
 	// invalid forever.
@@ -201,7 +202,7 @@ func cGet(ptr *C.db_t, gasMeter *C.gas_meter_t, usedGas *cu64, key C.U8SliceView
 	*usedGas = (cu64)(gasAfter - gasBefore)
 
 	// v will equal nil when the key is missing
-	// https://github.com/cosmos/cosmos-sdk/blob/1083fa948e347135861f88e07ec76b0314296832/store/types/store.go#L174
+	// https://github.com/line/lfb-sdk/blob/786df84b8e0aaa0a1aff79ffbab0541e597ee004/store/types/store.go#L203
 	*val = newUnmanagedVector(v)
 
 	return C.GoResult_Ok
