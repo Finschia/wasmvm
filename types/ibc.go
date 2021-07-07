@@ -16,8 +16,8 @@ type IBCChannel struct {
 }
 
 // TODO: test what the sdk Order.String() represents and how to parse back
-// Proto files: https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/ibc/core/channel/v1/channel.proto#L69-L80
-// Auto-gen code: https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/x/ibc/core/04-channel/types/channel.pb.go#L70-L101
+// `Order` in Proto files: https://github.com/line/lfb-sdk/blob/main/proto/ibc/core/channel/v1/channel.proto
+// `ORder` in Auto-gen code: https://github.com/line/lfb-sdk/blob/main/x/ibc/core/04-channel/types/channel.pb.go
 type IBCOrder = string
 
 // These are the only two valid values for IbcOrder
@@ -81,7 +81,7 @@ type IBCBasicResult struct {
 }
 
 // IBCBasicResponse defines the return value on a successful processing.
-// This is the counterpart of [IbcBasicResponse](https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/packages/std/src/ibc.rs#L194-L216).
+// This is the counterpart of `IbcBasicResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCBasicResponse struct {
 	// Submessages are like Messages, but they guarantee a reply to the calling contract
 	// after their execution, and return both success and error rather than auto-failing on error
@@ -109,7 +109,7 @@ type IBCReceiveResult struct {
 // Where the Acknowledgement bytes contain an encoded error message to be returned to
 // the calling chain. (Returning IBCReceiveResult::Err will abort processing of this packet
 // and not inform the calling chain).
-// This is the counterpart of (IbcReceiveResponse)(https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/packages/std/src/ibc.rs#L231-L254).
+// This is the counterpart of `IbcReceiveResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCReceiveResponse struct {
 	// binary encoded data to be returned to calling chain as the acknowledgement
 	Acknowledgement []byte `json:"acknowledgement"`
