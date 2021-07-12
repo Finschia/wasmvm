@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [[v0.14.0-0.6.0](https://github.com/line/wasmvm/compare/v0.14.0-0.5.0...v0.14.0-0.6.0)] - 2021-07-12
+
+### Changes
+* update upstream Cosmwasm/wasmvm version to 0.14.0 (#36)
+  - Please refer [CHANGELOG_OF_WASMVM_v0.14.0](https://github.com/CosmWasm/wasmvm/blob/v0.14.0/CHANGELOG.md)
+* change the depended CosmWasm/cosmwasm to line/cosmwasm
+
+
 ## [[v0.14.0-0.5.0](https://github.com/line/wasmvm/compare/v0.14.0-0.4.0...v0.14.0-0.5.0)] - 2021-05-12
 
 ### Changes
