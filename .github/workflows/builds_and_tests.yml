@@ -3,7 +3,7 @@ name: Builds and Tests
 on: [pull_request]
 
 jobs:
-  sanity:
+  libwasmvm_sanity:
     runs-on: ubuntu-latest
     steps:
       - name: Install Git
@@ -13,7 +13,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.50.0
+          toolchain: 1.51.0
           target: wasm32-unknown-unknown
           profile: minimal
           override: true
@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cargo
-          key: cargocache-v2-sanity-rust:1.50.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-libwasmvm_sanity-rust:1.51.0-${{ hashFiles('Cargo.lock') }}
       - name: Install shellcheck
         run: sudo apt install shellcheck
       - name: Show version information
@@ -43,7 +43,46 @@ jobs:
             sed -i  '/^crate-type = \["cdylib"\]/d' Cargo.toml
             cargo test --doc
       - name: Run shellcheck
-        run: find . -name "*.sh" -exec shellcheck {} +
+        run: ./devtools/check_shellscript_lint.sh
+
+  format-go:
+    runs-on: ubuntu-latest
+    steps:
+      - name: set up
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15.11
+        id: go
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Check Go formatting
+        run: |
+            [ "$(gofmt -l .)" = "" ] || (gofmt -d . && exit 1)
+  
+  format-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: set up
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15.11
+        id: go
+      - name: Install shfmt
+        run: GO111MODULE=on go get mvdan.cc/sh/v3/cmd/shfmt
+      - name: Run shfmt
+        run: shfmt -d .
+
+  lint-scripts:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Install packages
+        run: |
+            sudo apt update
+            sudo apt install -y git shellcheck
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Run shellcheck
+        run: ./devtools/check_shellscript_lint.sh
 
   build_shared_library:
     runs-on: ubuntu-latest
@@ -55,7 +94,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.50.0
+          toolchain: 1.51.0
           target: wasm32-unknown-unknown
           profile: minimal
           override: true
@@ -65,7 +104,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cargo
-          key: cargocache-v2-build_shared_library-rust:1.50.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-build_shared_library-rust:1.51.0-${{ hashFiles('Cargo.lock') }}
       - name: Show version information
         run: rustc --version; cargo --version; rustup --version
       - name: Create release build of libwasmvm

@@ -30,19 +30,19 @@ func TestIBC(t *testing.T) {
 }
 
 // IBCInstantiateMsg is the Go version of
-// https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/contracts/ibc-reflect/src/msg.rs#L9-L11
+// https://github.com/line/cosmwasm/blob/v0.14.0-0.4.0/contracts/ibc-reflect/src/msg.rs#L9-L11
 type IBCInstantiateMsg struct {
 	ReflectCodeID uint64 `json:"reflect_code_id"`
 }
 
 // IBCExecuteMsg is the Go version of
-// https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/contracts/ibc-reflect/src/msg.rs#L15
+// https://github.com/line/cosmwasm/blob/v0.14.0-0.4.0/contracts/ibc-reflect/src/msg.rs#L15
 type IBCExecuteMsg struct {
 	InitCallback InitCallback `json:"init_callback"`
 }
 
 // InitCallback is the Go version of
-// https://github.com/line/cosmwasm/blob/v0.14.0-0.3.0/contracts/ibc-reflect/src/msg.rs#L17-L22
+// https://github.com/line/cosmwasm/blob/v0.14.0-0.4.0/contracts/ibc-reflect/src/msg.rs#L17-L22
 type InitCallback struct {
 	ID           string `json:"id"`
 	ContractAddr string `json:"contract_addr"`
@@ -129,10 +129,11 @@ func TestIBCHandshake(t *testing.T) {
 	channel = api.MockIBCChannel(CHANNEL_ID, types.Ordered, IBC_VERSION)
 	res, _, err := vm.IBCChannelConnect(checksum, env, channel, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(res.Messages))
+	require.Equal(t, 0, len(res.Messages))
+	require.Equal(t, 1, len(res.Submessages))
 
 	// make sure it read the balance properly and we got 250 atoms
-	dispatch := res.Messages[0]
+	dispatch := res.Submessages[0].Msg
 	require.NotNil(t, dispatch.Wasm, "%#v", dispatch)
 	require.NotNil(t, dispatch.Wasm.Instantiate, "%#v", dispatch)
 	init := dispatch.Wasm.Instantiate
@@ -180,20 +181,37 @@ func TestIBCPacketDispatch(t *testing.T) {
 	store.SetGasMeter(gasMeter3)
 	// completes and dispatches message to create reflect contract
 	channel = api.MockIBCChannel(CHANNEL_ID, types.Ordered, IBC_VERSION)
-	_, _, err = vm.IBCChannelConnect(checksum, env, channel, store, *goapi, querier, gasMeter3, TESTING_GAS_LIMIT)
+	res, _, err := vm.IBCChannelConnect(checksum, env, channel, store, *goapi, querier, gasMeter3, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
+	require.Equal(t, 0, len(res.Messages))
+	require.Equal(t, 1, len(res.Submessages))
+	id := res.Submessages[0].ID
 
 	// mock reflect init callback (to store address)
 	gasMeter4 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
 	store.SetGasMeter(gasMeter4)
-	handleMsg := IBCExecuteMsg{
-		InitCallback: InitCallback{
-			ID:           CHANNEL_ID,
-			ContractAddr: REFLECT_ADDR,
+	reply := types.Reply{
+		ID: id,
+		Result: types.SubcallResult{
+			Ok: &types.SubcallResponse{
+				Events: types.Events{{
+					Type: "message",
+					Attributes: types.EventAttributes{
+						{
+							Key:   "module",
+							Value: "wasm",
+						},
+						{
+							Key:   "contract_address",
+							Value: REFLECT_ADDR,
+						},
+					},
+				}},
+				Data: nil,
+			},
 		},
 	}
-	info = api.MockInfo(REFLECT_ADDR, nil)
-	_, _, err = vm.Execute(checksum, env, info, toBytes(t, handleMsg), store, *goapi, querier, gasMeter4, TESTING_GAS_LIMIT)
+	_, _, err = vm.Reply(checksum, env, reply, store, *goapi, querier, gasMeter4, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
 
 	// ensure the channel is registered
@@ -237,7 +255,7 @@ func TestIBCPacketDispatch(t *testing.T) {
 	// assert app-level failure
 	var ack2 AcknowledgeDispatch
 	err = json.Unmarshal(pres2.Acknowledgement, &ack2)
-	require.Equal(t, "invalid packet: cosmwasm_std::addresses::HumanAddr not found", ack2.Err)
+	require.Equal(t, "invalid packet: cosmwasm_std::addresses::Addr not found", ack2.Err)
 }
 
 func TestAnalyzeCode(t *testing.T) {
