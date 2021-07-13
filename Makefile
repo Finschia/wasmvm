@@ -59,20 +59,20 @@ test-safety:
 release-build-alpine:
 	rm -rf target/release
 	# build the muslc *.a file
-	docker run --rm -v $(shell pwd):/code -e GITHUB_TOKEN=${GITHUB_TOKEN} $(BUILDERS_PREFIX)-alpine
+	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX)-alpine
 	# try running go tests using this lib with muslc
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags muslc . 
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags muslc .
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go test -tags='muslc mocks' ./api ./types
 
 # Creates a release build in a containerized build environment of the shared library for glibc Linux (.so)
 release-build-linux:
 	rm -rf target/release
-	docker run --rm -v $(shell pwd):/code -e GITHUB_TOKEN=${GITHUB_TOKEN} $(BUILDERS_PREFIX)-centos7
+	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX)-centos7
 
 # Creates a release build in a containerized build environment of the shared library for macOS (.dylib)
 release-build-macos:
 	rm -rf target/release
-	docker run --rm -v $(shell pwd):/code -e GITHUB_TOKEN=${GITHUB_TOKEN} $(BUILDERS_PREFIX)-cross
+	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX)-cross
 
 release-build:
 	# Write like this because those must not run in parallal

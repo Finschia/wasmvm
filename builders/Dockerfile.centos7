@@ -1,7 +1,7 @@
 FROM centos:centos7
 
 RUN yum -y update
-RUN yum -y install clang gcc gcc-c++ make wget git
+RUN yum -y install clang gcc gcc-c++ make wget
 
 # GET FROM https://github.com/rust-lang/docker-rust-nightly
 ENV RUSTUP_HOME=/usr/local/rustup \

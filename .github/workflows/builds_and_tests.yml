@@ -6,10 +6,6 @@ jobs:
   libwasmvm_sanity:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Git
-        run: sudo apt install -y git
-      - name: Git config
-        run: git config --global url."https://${{ secrets.ACCESS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -58,7 +54,7 @@ jobs:
       - name: Check Go formatting
         run: |
             [ "$(gofmt -l .)" = "" ] || (gofmt -d . && exit 1)
-  
+
   format-scripts:
     runs-on: ubuntu-latest
     steps:
@@ -87,10 +83,6 @@ jobs:
   build_shared_library:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Git
-        run: sudo apt install -y git
-      - name: Git config
-        run: git config --global url."https://${{ secrets.ACCESS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -135,7 +127,7 @@ jobs:
           name: libwasmvm
           path: /tmp/builds
       - name: Copy libwasmvm
-        run: cp /tmp/builds/libwasmvm.so ./api 
+        run: cp /tmp/builds/libwasmvm.so ./api
       - name: Go integration tests
         run: make test
       - name: Go tests with cgo and race condition safety checks
