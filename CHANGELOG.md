@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [[0.14.0-0.6.1](https://github.com/line/wasmvm/compare/v0.14.0-0.6.0...0.14.0-0.6.1)] - 2021-07-15
+
+### Fixes
+
+* rebuild shared libs to resolve compile error ([#44](https://github.com/line/wasmvm/issues/44))
+
+
 ## [[v0.14.0-0.6.0](https://github.com/line/wasmvm/compare/v0.14.0-0.5.0...v0.14.0-0.6.0)] - 2021-07-12
 
 ### Changes

@@ -1,6 +1,6 @@
 [package]
 name = "wasmvm"
-version = "0.14.0-0.6.0"
+version = "0.14.0-0.6.1"
 publish = false
 authors = ["LINE Plus Corporation"]
 edition = "2018"
