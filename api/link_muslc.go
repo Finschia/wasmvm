@@ -1,4 +1,5 @@
-// +build linux,muslc
+//go:build linux && muslc && !static
+// +build linux,muslc,!static
 
 package api
 
