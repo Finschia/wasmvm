@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [[0.14.0-0.7.0](https://github.com/line/wasmvm/compare/v0.14.0-0.6.1...0.14.0-0.7.0)] - 2021-09-30
+
+### Features
+
+* add static linking of wasmvm ([#46](https://github.com/line/wasmvm/issues/46))
+
+
 ## [[0.14.0-0.6.1](https://github.com/line/wasmvm/compare/v0.14.0-0.6.0...0.14.0-0.6.1)] - 2021-07-15
 
 ### Fixes
