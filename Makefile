@@ -1,6 +1,6 @@
 .PHONY: all build build-rust build-go test
 
-BUILDERS_PREFIX := cosmwasm/go-ext-builder:0006
+BUILDERS_PREFIX := line/wasmvm-builder
 USER_ID := $(shell id -u)
 USER_GROUP = $(shell id -g)
 
@@ -59,25 +59,31 @@ test-safety:
 release-build-alpine:
 	rm -rf target/release
 	# build the muslc *.a file
-	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX)-alpine
+	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX):alpine
 	# try running go tests using this lib with muslc
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags muslc .
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go test -tags='muslc mocks' ./api ./types
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go build -tags muslc .
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go test -tags='muslc mocks' ./api ./types
+
+# Creates a release build in a containerized build environment of the static library for glibc Linux (.a)
+release-build-linux-static:
+	rm -rf target/release
+	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX):static
 
 # Creates a release build in a containerized build environment of the shared library for glibc Linux (.so)
 release-build-linux:
 	rm -rf target/release
-	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX)-centos7
+	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX):centos7
 
 # Creates a release build in a containerized build environment of the shared library for macOS (.dylib)
 release-build-macos:
 	rm -rf target/release
-	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX)-cross
+	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX):cross
 
 release-build:
 	# Write like this because those must not run in parallal
 	make release-build-alpine
 	make release-build-linux
+	make release-build-linux-static
 	make release-build-macos
 
 test-alpine: release-build-alpine

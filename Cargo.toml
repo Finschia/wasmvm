@@ -13,10 +13,10 @@ exclude = [".circleci/*", ".gitignore"]
 [lib]
 crate-type = ["cdylib"]
 
-# the example is to allow us to compile a muslc static lib with the same codebase as we compile the
+# the example is to allow us to compile a static lib with the same codebase as we compile the
 # normal dynamic libs (best workaround I could find to override crate-type on the command line)
 [[example]]
-name = "muslc"
+name = "staticlib"
 path = "src/lib.rs"
 crate-type = ["staticlib"]
 

@@ -1,0 +1,15 @@
+# > docker build -t line/wasmvm-builder:static -f Dockerfile.static .
+
+FROM rust:1.53
+
+COPY . /code
+WORKDIR /code
+
+COPY guest/*.sh /opt/
+RUN chmod +x /opt/*.sh
+
+RUN mkdir /.cargo
+RUN chmod +rx /.cargo
+COPY guest/cargo-config /.cargo/config
+
+ENTRYPOINT ["/opt/build_linux_static.sh"]

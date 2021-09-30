@@ -1,3 +1,4 @@
+//go:build mocks
 // +build mocks
 
 package api
