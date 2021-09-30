@@ -58,7 +58,11 @@ test-safety:
 # Creates a release build in a containerized build environment of the static library for Alpine Linux (.a)
 release-build-alpine:
 	rm -rf target/release
+	# build the muslc *.a file
 	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX):alpine
+	# try running go tests using this lib with muslc
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go build -tags muslc .
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go test -tags='muslc mocks' ./api ./types
 
 # Creates a release build in a containerized build environment of the static library for glibc Linux (.a)
 release-build-linux-static:
