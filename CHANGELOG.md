@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [[v0.14.0-0.8.0](https://github.com/line/wasmvm/compare/v0.14.0-0.7.0...v0.14.0-0.8.0)] - 2021-10-01
+
+### Features
+
+* change tag name for static build ([#49](https://github.com/line/wasmvm/issues/49))
+
+
 ## [[0.14.0-0.7.0](https://github.com/line/wasmvm/compare/v0.14.0-0.6.1...0.14.0-0.7.0)] - 2021-09-30
 
 ### Features
