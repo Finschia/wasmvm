@@ -99,3 +99,11 @@ test-alpine: release-build-alpine
 	docker run --rm --read-only -v $(shell pwd):/code -w /code alpine:3.10 ./muslc.exe ./api/testdata/hackatom.wasm
 	# run static binary locally if you are on Linux
 	# ./muslc.exe ./api/testdata/hackatom.wasm
+
+test-static: release-build-linux-static
+	# build a go binary
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):static go build -tags='static mocks' -o static.exe ./cmd
+	# run static binary in an alpine machines (not dlls)
+	docker run --rm --read-only -v $(shell pwd):/code -w /code centos ./static.exe ./api/testdata/hackatom.wasm
+	# run static binary locally if you are on Linux
+	# ./static.exe ./api/testdata/hackatom.wasm
