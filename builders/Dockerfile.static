@@ -1,8 +1,25 @@
 # > docker build -t line/wasmvm-builder:static -f Dockerfile.static .
 
-FROM rust:1.53
+FROM golang:1.15
 
-COPY . /code
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+
+WORKDIR /tmp
+RUN wget "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"
+RUN chmod +x rustup-init
+RUN ./rustup-init -y --no-modify-path --default-toolchain 1.53.0; rm rustup-init
+RUN chmod -R a+w $RUSTUP_HOME $CARGO_HOME
+
+# prepare go cache dirs
+RUN mkdir -p /.cache/go-build
+RUN chmod -R 777 /.cache
+
+# allow non-root user to download more deps later
+RUN chmod -R 777 /usr/local/cargo
+
+## COPY BUILD SCRIPTS
 WORKDIR /code
 
 COPY guest/*.sh /opt/
@@ -12,4 +29,4 @@ RUN mkdir /.cargo
 RUN chmod +rx /.cargo
 COPY guest/cargo-config /.cargo/config
 
-ENTRYPOINT ["/opt/build_linux_static.sh"]
+CMD ["/opt/build_linux_static.sh"]

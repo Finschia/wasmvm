@@ -61,13 +61,17 @@ release-build-alpine:
 	# build the muslc *.a file
 	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX):alpine
 	# try running go tests using this lib with muslc
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go build -tags muslc .
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go test -tags='muslc mocks' ./api ./types
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go build -tags static .
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go test -tags='static mocks' ./api ./types
 
 # Creates a release build in a containerized build environment of the static library for glibc Linux (.a)
 release-build-linux-static:
 	rm -rf target/release
+	# build the glibc *.a file
 	docker run --rm -v $(shell pwd):/code $(BUILDERS_PREFIX):static
+	# try running go tests using this lib with glibc
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):static go build -tags static .
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):static go test -tags='static mocks' ./api ./types
 
 # Creates a release build in a containerized build environment of the shared library for glibc Linux (.so)
 release-build-linux:
@@ -88,10 +92,18 @@ release-build:
 
 test-alpine: release-build-alpine
 	# build a go binary
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX)-alpine go build -tags='muslc mocks' -o muslc.exe ./cmd
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):alpine go build -tags='static mocks' -o muslc.exe ./cmd
 	# run static binary in an alpine machines (not dlls)
 	docker run --rm --read-only -v $(shell pwd):/code -w /code alpine:3.12 ./muslc.exe ./api/testdata/hackatom.wasm
 	docker run --rm --read-only -v $(shell pwd):/code -w /code alpine:3.11 ./muslc.exe ./api/testdata/hackatom.wasm
 	docker run --rm --read-only -v $(shell pwd):/code -w /code alpine:3.10 ./muslc.exe ./api/testdata/hackatom.wasm
 	# run static binary locally if you are on Linux
 	# ./muslc.exe ./api/testdata/hackatom.wasm
+
+test-static: release-build-linux-static
+	# build a go binary
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/code -w /code $(BUILDERS_PREFIX):static go build -tags='static mocks' -o static.exe ./cmd
+	# run static binary in an alpine machines (not dlls)
+	docker run --rm --read-only -v $(shell pwd):/code -w /code centos ./static.exe ./api/testdata/hackatom.wasm
+	# run static binary locally if you are on Linux
+	# ./static.exe ./api/testdata/hackatom.wasm

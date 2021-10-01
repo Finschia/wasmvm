@@ -1,5 +1,5 @@
-//go:build (linux && !muslc && !static) || darwin
-// +build linux,!muslc,!static darwin
+//go:build (linux && !static) || darwin
+// +build linux,!static darwin
 
 package api
 
