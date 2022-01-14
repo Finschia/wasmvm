@@ -1,7 +1,10 @@
 use cosmwasm_vm::{BackendApi, BackendError, BackendResult, GasInfo};
 
+use crate::cache::{cache_t, to_cache};
+use crate::db::Db;
 use crate::error::GoResult;
 use crate::memory::{U8SliceView, UnmanagedVector};
+use crate::querier::GoQuerier;
 
 // this represents something passed in from the caller side of FFI
 // in this case a struct with go function pointers
@@ -26,6 +29,16 @@ pub struct GoApi_vtable {
         *const api_t,
         U8SliceView,
         *mut UnmanagedVector, // canonical output
+        *mut UnmanagedVector, // error message output
+        *mut u64,
+    ) -> i32,
+    pub get_contract_env: extern "C" fn(
+        *const api_t,
+        U8SliceView,
+        *mut *mut cache_t,
+        *mut Db,
+        *mut GoQuerier,
+        *mut UnmanagedVector, // checksum output
         *mut UnmanagedVector, // error message output
         *mut u64,
     ) -> i32,
