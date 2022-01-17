@@ -134,7 +134,6 @@ impl BackendApi for GoApi {
         args: &[WasmerVal],
         gas: u64,
     ) -> BackendResult<Box<[WasmerVal]>> {
-        //이 레이어에서 할만한 동작은 분명히 아니다...
         let mut error_msg = UnmanagedVector::default();
         let mut cache_ptr_out = MaybeUninit::uninit();
         let mut db_out = MaybeUninit::uninit();
