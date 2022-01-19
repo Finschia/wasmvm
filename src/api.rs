@@ -173,12 +173,12 @@ impl BackendApi for GoApi {
 
         let cache = match to_cache(cache_ptr) {
             Some(c) => c,
-            None => return (Err(BackendError::foreign_panic()), gas_info),
+            None => return (Err(BackendError::unknown("failed to_cache")), gas_info),
         };
 
         let checksum: Checksum = match checksum_out.consume() {
             Some(c) => c.as_slice().try_into().unwrap(),
-            None => return (Err(BackendError::foreign_panic()), gas_info),
+            None => return (Err(BackendError::unknown("invalid checksum")), gas_info),
         };
         let backend = into_backend(db, self.clone(), querier);
         let gas_limit = match gas.checked_sub(used_gas) {
@@ -193,13 +193,13 @@ impl BackendApi for GoApi {
         };
         let mut instance = match cache.get_instance(&checksum, backend, options) {
             Ok(ins) => ins,
-            Err(e) => return (Err(BackendError::foreign_panic()), gas_info),
+            Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
 
         let call_ret =
             match instance.call_function_strict(&func_info.signature, &func_info.name, args) {
                 Ok(ret) => ret,
-                Err(e) => return (Err(BackendError::foreign_panic()), gas_info),
+                Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
             };
 
         (Ok(call_ret), gas_info)
