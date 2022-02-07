@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 # > docker build -t line/wasmvm-builder:cross -f Dockerfile.cross .
 
+=======
+>>>>>>> bb8ec34568e3e704ad8060ea70de2d15697b7b12
 FROM rust:1.53.0-buster
 
 # Install build dependencies

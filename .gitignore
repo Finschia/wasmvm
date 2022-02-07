@@ -1,4 +1,4 @@
-/target
+target/
 **/*.rs.bk
 *.iml
 .idea
@@ -8,7 +8,11 @@ lib*.a
 
 # artifacts from compile tests
 artifacts/
+<<<<<<< HEAD
 muslc.exe
 static.exe
+=======
+/demo
+>>>>>>> bb8ec34568e3e704ad8060ea70de2d15697b7b12
 tmp
 a.out

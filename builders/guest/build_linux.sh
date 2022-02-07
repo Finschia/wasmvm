@@ -1,6 +1,6 @@
 #!/bin/bash
 
+# See https://github.com/CosmWasm/wasmvm/issues/222#issuecomment-880616953 for two approaches to
+# enable stripping through cargo (if that is desired).
+
 cargo build --release
-cp target/release/deps/libwasmvm.so api
-# FIXME: re-enable stripped so when we approach a production release, symbols are nice for debugging
-# strip api/libwasmvm.so

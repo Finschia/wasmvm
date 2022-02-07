@@ -10,9 +10,60 @@ type IBCChannel struct {
 	CounterpartyEndpoint IBCEndpoint `json:"counterparty_endpoint"`
 	Order                IBCOrder    `json:"order"`
 	Version              string      `json:"version"`
-	// optional
-	CounterpartyVersion string `json:"counterparty_version,omitempty"`
-	ConnectionID        string `json:"connection_id"`
+	ConnectionID         string      `json:"connection_id"`
+}
+
+type IBCChannelOpenMsg struct {
+	OpenInit *IBCOpenInit `json:"open_init,omitempty"`
+	OpenTry  *IBCOpenTry  `json:"open_try,omitempty"`
+}
+
+type IBCOpenInit struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+type IBCOpenTry struct {
+	Channel             IBCChannel `json:"channel"`
+	CounterpartyVersion string     `json:"counterparty_version"`
+}
+
+type IBCChannelConnectMsg struct {
+	OpenAck     *IBCOpenAck     `json:"open_ack,omitempty"`
+	OpenConfirm *IBCOpenConfirm `json:"open_confirm,omitempty"`
+}
+
+type IBCOpenAck struct {
+	Channel             IBCChannel `json:"channel"`
+	CounterpartyVersion string     `json:"counterparty_version"`
+}
+
+type IBCOpenConfirm struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+type IBCChannelCloseMsg struct {
+	CloseInit    *IBCCloseInit    `json:"close_init,omitempty"`
+	CloseConfirm *IBCCloseConfirm `json:"close_confirm,omitempty"`
+}
+
+type IBCCloseInit struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+type IBCCloseConfirm struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+type IBCPacketReceiveMsg struct {
+	Packet IBCPacket `json:"packet"`
+}
+
+type IBCPacketAckMsg struct {
+	Ack IBCAcknowledgementWithPacket `json:"ack"`
+}
+
+type IBCPacketTimeoutMsg struct {
+	Packet IBCPacket `json:"packet"`
 }
 
 // TODO: test what the sdk Order.String() represents and how to parse back
@@ -48,6 +99,10 @@ type IBCTimeout struct {
 	Timestamp uint64 `json:"timestamp,string,omitempty"`
 }
 
+type IBCAcknowledgement struct {
+	Data []byte `json:"data"`
+}
+
 type IBCPacket struct {
 	Data     []byte      `json:"data"`
 	Src      IBCEndpoint `json:"src"`
@@ -56,9 +111,9 @@ type IBCPacket struct {
 	Timeout  IBCTimeout  `json:"timeout"`
 }
 
-type IBCAcknowledgement struct {
-	Acknowledgement []byte    `json:"acknowledgement"`
-	OriginalPacket  IBCPacket `json:"original_packet"`
+type IBCAcknowledgementWithPacket struct {
+	Acknowledgement IBCAcknowledgement `json:"acknowledgement"`
+	OriginalPacket  IBCPacket          `json:"original_packet"`
 }
 
 // IBCChannelOpenResult is the raw response from the ibc_channel_open call.
@@ -84,13 +139,16 @@ type IBCBasicResult struct {
 // IBCBasicResponse defines the return value on a successful processing.
 // This is the counterpart of `IbcBasicResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCBasicResponse struct {
-	// Submessages are like Messages, but they guarantee a reply to the calling contract
-	// after their execution, and return both success and error rather than auto-failing on error
-	Submessages []SubMsg `json:"submessages"`
-	// Messages comes directly from the contract and is it's request for action
-	Messages []CosmosMsg `json:"messages"`
+	// Messages comes directly from the contract and is its request for action.
+	// If the ReplyOn value matches the result, the runtime will invoke this
+	// contract's `reply` entry point after execution. Otherwise, this is all
+	// "fire and forget".
+	Messages []SubMsg `json:"messages"`
 	// attributes for a log event to return over abci interface
 	Attributes []EventAttribute `json:"attributes"`
+	// custom events (separate from the main one that contains the attributes
+	// above)
+	Events []Event `json:"events"`
 }
 
 // This is the return value for the majority of the ibc handlers.
@@ -114,11 +172,13 @@ type IBCReceiveResult struct {
 type IBCReceiveResponse struct {
 	// binary encoded data to be returned to calling chain as the acknowledgement
 	Acknowledgement []byte `json:"acknowledgement"`
-	// Submessages are like Messages, but they guarantee a reply to the calling contract
-	// after their execution, and return both success and error rather than auto-failing on error
-	Submessages []SubMsg `json:"submessages"`
-	// Messages comes directly from the contract and is it's request for action
-	Messages []CosmosMsg `json:"messages"`
-	// attributes for a log event to return over abci interface
+	// Messages comes directly from the contract and is it's request for action.
+	// If the ReplyOn value matches the result, the runtime will invoke this
+	// contract's `reply` entry point after execution. Otherwise, this is all
+	// "fire and forget".
+	Messages   []SubMsg         `json:"messages"`
 	Attributes []EventAttribute `json:"attributes"`
+	// custom events (separate from the main one that contains the attributes
+	// above)
+	Events []Event `json:"events"`
 }
