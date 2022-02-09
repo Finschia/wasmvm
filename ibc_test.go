@@ -211,7 +211,7 @@ func TestIBCPacketDispatch(t *testing.T) {
 							Value: "wasm",
 						},
 						{
-							Key:   "contract_address",
+							Key:   "_contract_address",
 							Value: REFLECT_ADDR,
 						},
 					},
@@ -280,7 +280,7 @@ func TestIBCPacketDispatch(t *testing.T) {
 func TestAnalyzeCode(t *testing.T) {
 	vm := withVM(t)
 
-	// instantiate non-ibc contract
+	// Store non-IBC contract
 	wasm, err := ioutil.ReadFile(HACKATOM_TEST_CONTRACT)
 	require.NoError(t, err)
 	checksum, err := vm.Create(wasm)
@@ -289,8 +289,9 @@ func TestAnalyzeCode(t *testing.T) {
 	report, err := vm.AnalyzeCode(checksum)
 	require.NoError(t, err)
 	require.False(t, report.HasIBCEntryPoints)
+	require.Equal(t, "", report.RequiredFeatures)
 
-	// instantiate ibc contract
+	// Store IBC contract
 	wasm2, err := ioutil.ReadFile(IBC_TEST_CONTRACT)
 	require.NoError(t, err)
 	checksum2, err := vm.Create(wasm2)
@@ -299,4 +300,46 @@ func TestAnalyzeCode(t *testing.T) {
 	report2, err := vm.AnalyzeCode(checksum2)
 	require.NoError(t, err)
 	require.True(t, report2.HasIBCEntryPoints)
+	require.Equal(t, "staking,stargate", report2.RequiredFeatures)
+}
+
+func TestIBCMsgGetChannel(t *testing.T) {
+	const CHANNEL_ID = "channel-432"
+
+	msg1 := api.MockIBCChannelOpenInit(CHANNEL_ID, types.Ordered, "random-garbage")
+	msg2 := api.MockIBCChannelOpenTry(CHANNEL_ID, types.Ordered, "random-garbage")
+	msg3 := api.MockIBCChannelConnectAck(CHANNEL_ID, types.Ordered, "random-garbage")
+	msg4 := api.MockIBCChannelConnectConfirm(CHANNEL_ID, types.Ordered, "random-garbage")
+	msg5 := api.MockIBCChannelCloseInit(CHANNEL_ID, types.Ordered, "random-garbage")
+	msg6 := api.MockIBCChannelCloseConfirm(CHANNEL_ID, types.Ordered, "random-garbage")
+
+	require.Equal(t, msg1.GetChannel(), msg2.GetChannel())
+	require.Equal(t, msg1.GetChannel(), msg3.GetChannel())
+	require.Equal(t, msg1.GetChannel(), msg4.GetChannel())
+	require.Equal(t, msg1.GetChannel(), msg5.GetChannel())
+	require.Equal(t, msg1.GetChannel(), msg6.GetChannel())
+	require.Equal(t, msg1.GetChannel().Endpoint.ChannelID, CHANNEL_ID)
+}
+
+func TestIBCMsgGetCounterVersion(t *testing.T) {
+	const CHANNEL_ID = "channel-432"
+	const VERSION = "random-garbage"
+
+	msg1 := api.MockIBCChannelOpenInit(CHANNEL_ID, types.Ordered, VERSION)
+	v, ok := msg1.GetCounterVersion()
+	require.False(t, ok)
+
+	msg2 := api.MockIBCChannelOpenTry(CHANNEL_ID, types.Ordered, VERSION)
+	v, ok = msg2.GetCounterVersion()
+	require.True(t, ok)
+	require.Equal(t, VERSION, v)
+
+	msg3 := api.MockIBCChannelConnectAck(CHANNEL_ID, types.Ordered, VERSION)
+	v, ok = msg3.GetCounterVersion()
+	require.True(t, ok)
+	require.Equal(t, VERSION, v)
+
+	msg4 := api.MockIBCChannelConnectConfirm(CHANNEL_ID, types.Ordered, VERSION)
+	v, ok = msg4.GetCounterVersion()
+	require.False(t, ok)
 }

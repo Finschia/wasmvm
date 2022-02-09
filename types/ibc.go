@@ -18,8 +18,31 @@ type IBCChannelOpenMsg struct {
 	OpenTry  *IBCOpenTry  `json:"open_try,omitempty"`
 }
 
+// GetChannel returns the IBCChannel in this message.
+func (msg IBCChannelOpenMsg) GetChannel() IBCChannel {
+	if msg.OpenInit != nil {
+		return msg.OpenInit.Channel
+	}
+	return msg.OpenTry.Channel
+}
+
+// GetCounterVersion checks if the message has a counterparty version and
+// returns it if so.
+func (msg IBCChannelOpenMsg) GetCounterVersion() (ver string, ok bool) {
+	if msg.OpenTry != nil {
+		return msg.OpenTry.CounterpartyVersion, true
+	}
+	return "", false
+}
+
 type IBCOpenInit struct {
 	Channel IBCChannel `json:"channel"`
+}
+
+func (m *IBCOpenInit) ToMsg() IBCChannelOpenMsg {
+	return IBCChannelOpenMsg{
+		OpenInit: m,
+	}
 }
 
 type IBCOpenTry struct {
@@ -27,9 +50,32 @@ type IBCOpenTry struct {
 	CounterpartyVersion string     `json:"counterparty_version"`
 }
 
+func (m *IBCOpenTry) ToMsg() IBCChannelOpenMsg {
+	return IBCChannelOpenMsg{
+		OpenTry: m,
+	}
+}
+
 type IBCChannelConnectMsg struct {
 	OpenAck     *IBCOpenAck     `json:"open_ack,omitempty"`
 	OpenConfirm *IBCOpenConfirm `json:"open_confirm,omitempty"`
+}
+
+// GetChannel returns the IBCChannel in this message.
+func (msg IBCChannelConnectMsg) GetChannel() IBCChannel {
+	if msg.OpenAck != nil {
+		return msg.OpenAck.Channel
+	}
+	return msg.OpenConfirm.Channel
+}
+
+// GetCounterVersion checks if the message has a counterparty version and
+// returns it if so.
+func (msg IBCChannelConnectMsg) GetCounterVersion() (ver string, ok bool) {
+	if msg.OpenAck != nil {
+		return msg.OpenAck.CounterpartyVersion, true
+	}
+	return "", false
 }
 
 type IBCOpenAck struct {
@@ -37,8 +83,20 @@ type IBCOpenAck struct {
 	CounterpartyVersion string     `json:"counterparty_version"`
 }
 
+func (m *IBCOpenAck) ToMsg() IBCChannelConnectMsg {
+	return IBCChannelConnectMsg{
+		OpenAck: m,
+	}
+}
+
 type IBCOpenConfirm struct {
 	Channel IBCChannel `json:"channel"`
+}
+
+func (m *IBCOpenConfirm) ToMsg() IBCChannelConnectMsg {
+	return IBCChannelConnectMsg{
+		OpenConfirm: m,
+	}
 }
 
 type IBCChannelCloseMsg struct {
@@ -46,12 +104,32 @@ type IBCChannelCloseMsg struct {
 	CloseConfirm *IBCCloseConfirm `json:"close_confirm,omitempty"`
 }
 
+// GetChannel returns the IBCChannel in this message.
+func (msg IBCChannelCloseMsg) GetChannel() IBCChannel {
+	if msg.CloseInit != nil {
+		return msg.CloseInit.Channel
+	}
+	return msg.CloseConfirm.Channel
+}
+
 type IBCCloseInit struct {
 	Channel IBCChannel `json:"channel"`
 }
 
+func (m *IBCCloseInit) ToMsg() IBCChannelCloseMsg {
+	return IBCChannelCloseMsg{
+		CloseInit: m,
+	}
+}
+
 type IBCCloseConfirm struct {
 	Channel IBCChannel `json:"channel"`
+}
+
+func (m *IBCCloseConfirm) ToMsg() IBCChannelCloseMsg {
+	return IBCChannelCloseMsg{
+		CloseConfirm: m,
+	}
 }
 
 type IBCPacketReceiveMsg struct {
@@ -59,7 +137,8 @@ type IBCPacketReceiveMsg struct {
 }
 
 type IBCPacketAckMsg struct {
-	Ack IBCAcknowledgementWithPacket `json:"ack"`
+	Acknowledgement IBCAcknowledgement `json:"acknowledgement"`
+	OriginalPacket  IBCPacket          `json:"original_packet"`
 }
 
 type IBCPacketTimeoutMsg struct {
@@ -109,11 +188,6 @@ type IBCPacket struct {
 	Dest     IBCEndpoint `json:"dest"`
 	Sequence uint64      `json:"sequence"`
 	Timeout  IBCTimeout  `json:"timeout"`
-}
-
-type IBCAcknowledgementWithPacket struct {
-	Acknowledgement IBCAcknowledgement `json:"acknowledgement"`
-	OriginalPacket  IBCPacket          `json:"original_packet"`
 }
 
 // IBCChannelOpenResult is the raw response from the ibc_channel_open call.
