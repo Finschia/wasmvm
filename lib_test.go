@@ -61,7 +61,6 @@ func TestHappyPath(t *testing.T) {
 	vm := withVM(t)
 	checksum := createTestContract(t, vm, HACKATOM_TEST_CONTRACT)
 
-	deserCost := types.UFraction{1, 1}
 	gasMeter1 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
 	// instantiate it with this store
 	store := api.NewLookup(gasMeter1)
@@ -73,7 +72,7 @@ func TestHappyPath(t *testing.T) {
 	env := api.MockEnv()
 	info := api.MockInfo("creator", nil)
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	ires, _, err := vm.Instantiate(checksum, env, info, msg, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	ires, _, err := vm.Instantiate(checksum, env, info, msg, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
@@ -82,12 +81,12 @@ func TestHappyPath(t *testing.T) {
 	store.SetGasMeter(gasMeter2)
 	env = api.MockEnv()
 	info = api.MockInfo("fred", nil)
-	hres, _, err := vm.Execute(checksum, env, info, []byte(`{"release":{}}`), store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
+	hres, _, err := vm.Execute(checksum, env, info, []byte(`{"release":{}}`), store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(hres.Messages))
 
 	// make sure it read the balance properly and we got 250 atoms
-	dispatch := hres.Messages[0].Msg
+	dispatch := hres.Messages[0]
 	require.NotNil(t, dispatch.Bank, "%#v", dispatch)
 	require.NotNil(t, dispatch.Bank.Send, "%#v", dispatch)
 	send := dispatch.Bank.Send
@@ -109,8 +108,6 @@ func TestGetMetrics(t *testing.T) {
 	// Create contract
 	checksum := createTestContract(t, vm, HACKATOM_TEST_CONTRACT)
 
-	deserCost := types.UFraction{1, 1}
-
 	// GetMetrics 2
 	metrics, err = vm.GetMetrics()
 	require.NoError(t, err)
@@ -127,7 +124,7 @@ func TestGetMetrics(t *testing.T) {
 	env := api.MockEnv()
 	info := api.MockInfo("creator", nil)
 	msg1 := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	ires, _, err := vm.Instantiate(checksum, env, info, msg1, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	ires, _, err := vm.Instantiate(checksum, env, info, msg1, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
@@ -137,12 +134,12 @@ func TestGetMetrics(t *testing.T) {
 	assert.Equal(t, &types.Metrics{
 		HitsFsCache:         1,
 		ElementsMemoryCache: 1,
-		SizeMemoryCache:     4956720,
+		SizeMemoryCache:     3432787,
 	}, metrics)
 
 	// Instantiate 2
 	msg2 := []byte(`{"verifier": "fred", "beneficiary": "susi"}`)
-	ires, _, err = vm.Instantiate(checksum, env, info, msg2, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	ires, _, err = vm.Instantiate(checksum, env, info, msg2, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
@@ -153,7 +150,7 @@ func TestGetMetrics(t *testing.T) {
 		HitsMemoryCache:     1,
 		HitsFsCache:         1,
 		ElementsMemoryCache: 1,
-		SizeMemoryCache:     4956720,
+		SizeMemoryCache:     3432787,
 	}, metrics)
 
 	// Pin
@@ -168,13 +165,13 @@ func TestGetMetrics(t *testing.T) {
 		HitsFsCache:               1,
 		ElementsPinnedMemoryCache: 1,
 		ElementsMemoryCache:       1,
-		SizePinnedMemoryCache:     4956720,
-		SizeMemoryCache:           4956720,
+		SizePinnedMemoryCache:     3432787,
+		SizeMemoryCache:           3432787,
 	}, metrics)
 
 	// Instantiate 3
 	msg3 := []byte(`{"verifier": "fred", "beneficiary": "bert"}`)
-	ires, _, err = vm.Instantiate(checksum, env, info, msg3, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	ires, _, err = vm.Instantiate(checksum, env, info, msg3, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
@@ -187,8 +184,8 @@ func TestGetMetrics(t *testing.T) {
 		HitsFsCache:               1,
 		ElementsPinnedMemoryCache: 1,
 		ElementsMemoryCache:       1,
-		SizePinnedMemoryCache:     4956720,
-		SizeMemoryCache:           4956720,
+		SizePinnedMemoryCache:     3432787,
+		SizeMemoryCache:           3432787,
 	}, metrics)
 
 	// Unpin
@@ -205,12 +202,12 @@ func TestGetMetrics(t *testing.T) {
 		ElementsPinnedMemoryCache: 0,
 		ElementsMemoryCache:       1,
 		SizePinnedMemoryCache:     0,
-		SizeMemoryCache:           4956720,
+		SizeMemoryCache:           3432787,
 	}, metrics)
 
 	// Instantiate 4
 	msg4 := []byte(`{"verifier": "fred", "beneficiary": "jeff"}`)
-	ires, _, err = vm.Instantiate(checksum, env, info, msg4, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	ires, _, err = vm.Instantiate(checksum, env, info, msg4, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
@@ -224,6 +221,6 @@ func TestGetMetrics(t *testing.T) {
 		ElementsPinnedMemoryCache: 0,
 		ElementsMemoryCache:       1,
 		SizePinnedMemoryCache:     0,
-		SizeMemoryCache:           4956720,
+		SizeMemoryCache:           3432787,
 	}, metrics)
 }

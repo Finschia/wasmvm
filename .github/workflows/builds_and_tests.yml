@@ -9,7 +9,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.55.0
+          toolchain: 1.51.0
           target: wasm32-unknown-unknown
           profile: minimal
           override: true
@@ -19,7 +19,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cargo
-          key: cargocache-v2-libwasmvm_sanity-rust:1.55.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-libwasmvm_sanity-rust:1.51.0-${{ hashFiles('Cargo.lock') }}
       - name: Install shellcheck
         run: sudo apt install shellcheck
       - name: Show version information
@@ -27,19 +27,14 @@ jobs:
       - name: Add Rust components
         run: rustup component add clippy rustfmt
       - name: Check formatting
-        working-directory: ./libwasmvm
         run: cargo fmt -- --check
       - name: Run linter
-        working-directory: ./libwasmvm
         run: cargo clippy -- -D warnings
       - name: Run unit tests
-        working-directory: ./libwasmvm
         run: cargo test
       - name: Build docs
-        working-directory: ./libwasmvm
         run: cargo doc --no-deps
       - name: Test docs
-        working-directory: ./libwasmvm
         run: |
             sed -i  '/^crate-type = \["cdylib"\]/d' Cargo.toml
             cargo test --doc
@@ -91,7 +86,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.55.0
+          toolchain: 1.51.0
           target: wasm32-unknown-unknown
           profile: minimal
           override: true
@@ -101,7 +96,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cargo
-          key: cargocache-v2-build_shared_library-rust:1.55.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-build_shared_library-rust:1.51.0-${{ hashFiles('Cargo.lock') }}
       - name: Show version information
         run: rustc --version; cargo --version; rustup --version
       - name: Create release build of libwasmvm
