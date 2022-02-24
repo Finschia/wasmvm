@@ -180,7 +180,7 @@ impl BackendApi for GoApi {
             Some(c) => c.as_slice().try_into().unwrap(),
             None => return (Err(BackendError::unknown("invalid checksum")), gas_info),
         };
-        let backend = into_backend(db, self.clone(), querier);
+        let backend = into_backend(db, *self, querier);
         let gas_limit = match gas.checked_sub(used_gas) {
             Some(renaming) => renaming,
             None => return (Err(BackendError::out_of_gas()), gas_info),
