@@ -191,7 +191,7 @@ impl BackendApi for GoApi {
             gas_limit,
             print_debug,
         };
-        let mut instance = match cache.get_instance(&checksum, backend, options) {
+        let instance = match cache.get_instance(&checksum, backend, options) {
             Ok(ins) => ins,
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
