@@ -31,10 +31,10 @@ if [[ -n "$CHANGES_IN_REPO" ]]; then
 fi
 
 NEW="$1"
-OLD=$(cargo tree -i wasmvm | grep -oE "[0-9]+(\.[0-9]+){2}-[0-9]+(\.[0-9]+){2}")
+OLD=$(cargo tree -i wasmvm --manifest-path libwasmvm/Cargo.toml | grep -oE "[0-9]+(\.[0-9]+){2}-[0-9]+(\.[0-9]+){2}")
 echo "Updating old version $OLD to new version $NEW ..."
 
-CARGO_TOML="Cargo.toml"
+CARGO_TOML="libwasmvm/Cargo.toml"
 "$gnused" -i -e "s/version[[:space:]]*=[[:space:]]*\"$OLD\"/version = \"$NEW\"/" "$CARGO_TOML"
 
-cargo check
+cargo check --manifest-path libwasmvm/Cargo.toml
