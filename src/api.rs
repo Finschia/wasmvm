@@ -1,6 +1,6 @@
 use cosmwasm_vm::{
-    Backend, BackendApi, BackendError, BackendResult, Checksum, FunctionMetadata, GasInfo,
-    InstanceOptions, WasmerVal, copy_region_vals_between_env, Storage, Querier, Environment,
+    copy_region_vals_between_env, Backend, BackendApi, BackendError, BackendResult, Checksum,
+    Environment, FunctionMetadata, GasInfo, InstanceOptions, Querier, Storage, WasmerVal,
 };
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
@@ -134,11 +134,11 @@ impl BackendApi for GoApi {
         func_info: &FunctionMetadata,
         args: &[WasmerVal],
         gas: u64,
-    ) -> BackendResult<Box<[WasmerVal]>> 
+    ) -> BackendResult<Box<[WasmerVal]>>
     where
-    A: BackendApi + 'static,
-    S: Storage + 'static,
-    Q: Querier + 'static,
+        A: BackendApi + 'static,
+        S: Storage + 'static,
+        Q: Querier + 'static,
     {
         let mut error_msg = UnmanagedVector::default();
         let mut cache_ptr_out = MaybeUninit::uninit();
@@ -202,13 +202,18 @@ impl BackendApi for GoApi {
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
 
-
-        let arg_region_ptrs = copy_region_vals_between_env(caller_env, &callee_instance.env, args, false).unwrap();
-        let call_ret =
-            match callee_instance.call_function_strict(&func_info.signature, &func_info.name, &arg_region_ptrs) {
-                Ok(rets) => copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true).unwrap(),
-                Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
-            };
+        let arg_region_ptrs =
+            copy_region_vals_between_env(caller_env, &callee_instance.env, args, false).unwrap();
+        let call_ret = match callee_instance.call_function_strict(
+            &func_info.signature,
+            &func_info.name,
+            &arg_region_ptrs,
+        ) {
+            Ok(rets) => {
+                copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true).unwrap()
+            }
+            Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
+        };
 
         (Ok(call_ret), gas_info)
     }
