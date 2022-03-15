@@ -28,6 +28,8 @@ type Querier = types.Querier
 // GasMeter is a read-only version of the sdk gas meter
 type GasMeter = api.GasMeter
 
+type Cache = api.Cache
+
 // VM is the main entry point to this library.
 // You should create an instance with its own subdirectory to manage state inside,
 // and call it for all cosmwasm code related actions.
@@ -551,4 +553,8 @@ func (vm *VM) IBCPacketTimeout(
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
 	return resp.Ok, gasUsed, nil
+}
+
+func (vm *VM) GetCache() *Cache {
+	return &vm.cache
 }

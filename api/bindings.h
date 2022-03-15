@@ -258,16 +258,6 @@ typedef struct api_t {
   uint8_t _private[0];
 } api_t;
 
-typedef struct GoApi_vtable {
-  int32_t (*humanize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
-  int32_t (*canonicalize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
-} GoApi_vtable;
-
-typedef struct GoApi {
-  const struct api_t *state;
-  struct GoApi_vtable vtable;
-} GoApi;
-
 typedef struct querier_t {
   uint8_t _private[0];
 } querier_t;
@@ -280,6 +270,17 @@ typedef struct GoQuerier {
   const struct querier_t *state;
   struct Querier_vtable vtable;
 } GoQuerier;
+
+typedef struct GoApi_vtable {
+  int32_t (*humanize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
+  int32_t (*canonicalize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
+  int32_t (*get_contract_env)(const struct api_t*, struct U8SliceView, struct cache_t**, struct Db*, struct GoQuerier*, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
+} GoApi_vtable;
+
+typedef struct GoApi {
+  const struct api_t *state;
+  struct GoApi_vtable vtable;
+} GoApi;
 
 struct cache_t *init_cache(struct ByteSliceView data_dir,
                            struct ByteSliceView supported_features,
