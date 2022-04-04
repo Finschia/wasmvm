@@ -205,10 +205,12 @@ impl BackendApi for GoApi {
             gas_limit,
             print_debug,
         };
-        let callee_instance = match cache.get_instance(&checksum, backend, options) {
+        let mut callee_instance = match cache.get_instance(&checksum, backend, options) {
             Ok(ins) => ins,
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
+        
+        caller_env.pass_callstack(&mut callee_instance.env);
 
         callee_instance.env.set_serialized_env(&contract_env);
 
