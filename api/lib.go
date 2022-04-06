@@ -30,6 +30,8 @@ type Cache struct {
 	ptr *C.cache_t
 }
 
+type Env = types.Env
+
 type Querier = types.Querier
 
 func InitCache(dataDir string, supportedFeatures string, cacheSize uint32, instanceMemoryLimit uint32) (Cache, error) {

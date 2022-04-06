@@ -41,6 +41,7 @@ pub struct GoApi_vtable {
     pub get_contract_env: extern "C" fn(
         *const api_t,
         U8SliceView,
+        *mut UnmanagedVector, // env output
         *mut *mut cache_t,
         *mut Db,
         *mut GoQuerier,
@@ -141,6 +142,7 @@ impl BackendApi for GoApi {
         Q: Querier + 'static,
     {
         let mut error_msg = UnmanagedVector::default();
+        let mut contract_env_out = UnmanagedVector::default();
         let mut cache_ptr_out = MaybeUninit::uninit();
         let mut db_out = MaybeUninit::uninit();
         let mut querier_out = MaybeUninit::uninit();
@@ -150,6 +152,7 @@ impl BackendApi for GoApi {
         let go_result: GoResult = (self.vtable.get_contract_env)(
             self.state,
             U8SliceView::new(Some(contract_addr.as_bytes())),
+            &mut contract_env_out as *mut UnmanagedVector,
             cache_ptr_out.as_mut_ptr(),
             db_out.as_mut_ptr(),
             querier_out.as_mut_ptr(),
@@ -172,6 +175,11 @@ impl BackendApi for GoApi {
                 return (Err(err), gas_info);
             }
         }
+
+        let contract_env = match contract_env_out.consume() {
+            Some(c) => c,
+            None => return (Err(BackendError::unknown("invalid contract env")), gas_info),
+        };
 
         let cache_ptr = unsafe { cache_ptr_out.assume_init() };
         let db = unsafe { db_out.assume_init() };
@@ -201,6 +209,8 @@ impl BackendApi for GoApi {
             Ok(ins) => ins,
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
+
+        callee_instance.env.set_serialized_env(&contract_env);
 
         let arg_region_ptrs =
             copy_region_vals_between_env(caller_env, &callee_instance.env, args, false).unwrap();

@@ -14,7 +14,7 @@ GoResult cNext(iterator_t *ptr, gas_meter_t *gas_meter, uint64_t *used_gas, Unma
 // imports (api)
 GoResult cHumanAddress(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
 GoResult cCanonicalAddress(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
-GoResult cGetContractEnv(api_t *ptr, U8SliceView contractAddr, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas);
+GoResult cGetContractEnv(api_t *ptr, U8SliceView contractAddr, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas);
 // imports (querier)
 GoResult cQueryExternal(querier_t *ptr, uint64_t gas_limit, uint64_t *used_gas, U8SliceView request, UnmanagedVector *result, UnmanagedVector *errOut);
 
@@ -44,8 +44,8 @@ GoResult cCanonicalAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *des
 GoResult cHumanAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas) {
     return cHumanAddress(ptr, src, dest, errOut, used_gas);
 }
-GoResult cGetContractEnv_cgo(api_t *ptr, U8SliceView contractAddr, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas) {
-    return cGetContractEnv(ptr, contractAddr, cachePtrOut, dbOut, querierOut, checksumOut, errOut, used_gas);
+GoResult cGetContractEnv_cgo(api_t *ptr, U8SliceView contractAddr, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas) {
+    return cGetContractEnv(ptr, contractAddr, contractEnvOut, cachePtrOut, dbOut, querierOut, checksumOut, errOut, used_gas);
 }
 
 // Gateway functions (querier)
