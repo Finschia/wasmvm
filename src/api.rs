@@ -210,6 +210,7 @@ impl BackendApi for GoApi {
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
         callee_instance.env.set_serialized_env(&contract_env);
+        callee_instance.set_storage_readonly(caller_env.is_storage_readonly());
         match caller_env.pass_callstack(&mut callee_instance.env) {
             Ok(_) => {}
             Err(e) => return (Err(BackendError::user_err(e.to_string())), gas_info),
