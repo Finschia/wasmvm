@@ -209,10 +209,11 @@ impl BackendApi for GoApi {
             Ok(ins) => ins,
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
-        
-        caller_env.pass_callstack(&mut callee_instance.env);
-
         callee_instance.env.set_serialized_env(&contract_env);
+        match caller_env.pass_callstack(&mut callee_instance.env) {
+            Ok(_) => {}
+            Err(e) => return (Err(BackendError::user_err(e.to_string())), gas_info),
+        }
 
         let arg_region_ptrs =
             copy_region_vals_between_env(caller_env, &callee_instance.env, args, false).unwrap();
