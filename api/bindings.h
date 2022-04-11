@@ -274,7 +274,7 @@ typedef struct GoQuerier {
 typedef struct GoApi_vtable {
   int32_t (*humanize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
   int32_t (*canonicalize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
-  int32_t (*get_contract_env)(const struct api_t*, struct U8SliceView, struct cache_t**, struct Db*, struct GoQuerier*, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
+  int32_t (*get_contract_env)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct cache_t**, struct Db*, struct GoQuerier*, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
 } GoApi_vtable;
 
 typedef struct GoApi {

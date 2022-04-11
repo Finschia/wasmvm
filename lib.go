@@ -30,6 +30,8 @@ type GasMeter = api.GasMeter
 
 type Cache = api.Cache
 
+type Env = api.Env
+
 // VM is the main entry point to this library.
 // You should create an instance with its own subdirectory to manage state inside,
 // and call it for all cosmwasm code related actions.
