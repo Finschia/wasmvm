@@ -160,7 +160,7 @@ impl BackendApi for GoApi {
             &mut used_gas as *mut u64,
         )
         .into();
-        let gas_info = GasInfo::with_cost(used_gas);
+        let mut gas_info = GasInfo::with_cost(used_gas);
         let gas_limit = match caller_env.get_gas_left().checked_sub(used_gas) {
             Some(renaming) => renaming,
             None => return (Err(BackendError::out_of_gas()), gas_info),
@@ -222,13 +222,12 @@ impl BackendApi for GoApi {
             &func_info.name,
             &arg_region_ptrs,
         ) {
-            Ok(rets) => {
-                copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true).unwrap()
-            }
-            Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
+            Ok(rets) => Ok(copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true).unwrap()),
+            Err(e) => Err(BackendError::unknown(e.to_string())),
         };
+        gas_info.cost += callee_instance.create_gas_report().used_internally;
 
-        (Ok(call_ret), gas_info)
+        (call_ret, gas_info)
     }
 }
 
