@@ -134,7 +134,6 @@ impl BackendApi for GoApi {
         contract_addr: &str,
         func_info: &FunctionMetadata,
         args: &[WasmerVal],
-        gas: u64,
     ) -> BackendResult<Box<[WasmerVal]>>
     where
         A: BackendApi + 'static,
@@ -162,6 +161,10 @@ impl BackendApi for GoApi {
         )
         .into();
         let gas_info = GasInfo::with_cost(used_gas);
+        let gas_limit = match caller_env.get_gas_left().checked_sub(used_gas) {
+            Some(renaming) => renaming,
+            None => return (Err(BackendError::out_of_gas()), gas_info),
+        };
 
         // return complete error message (reading from buffer for GoResult::Other)
         let default = || {
@@ -195,10 +198,6 @@ impl BackendApi for GoApi {
             None => return (Err(BackendError::unknown("invalid checksum")), gas_info),
         };
         let backend = into_backend(db, *self, querier);
-        let gas_limit = match gas.checked_sub(used_gas) {
-            Some(renaming) => renaming,
-            None => return (Err(BackendError::out_of_gas()), gas_info),
-        };
 
         let print_debug = false;
         let options = InstanceOptions {
