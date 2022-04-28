@@ -222,7 +222,12 @@ impl BackendApi for GoApi {
             &func_info.name,
             &arg_region_ptrs,
         ) {
-            Ok(rets) => Ok(copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true).unwrap()),
+            Ok(rets) => {
+                Ok(
+                    copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true)
+                        .unwrap(),
+                )
+            }
             Err(e) => Err(BackendError::unknown(e.to_string())),
         };
         gas_info.cost += callee_instance.create_gas_report().used_internally;
