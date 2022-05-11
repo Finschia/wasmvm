@@ -134,7 +134,6 @@ impl BackendApi for GoApi {
         contract_addr: &str,
         func_info: &FunctionMetadata,
         args: &[WasmerVal],
-        gas: u64,
     ) -> BackendResult<Box<[WasmerVal]>>
     where
         A: BackendApi + 'static,
@@ -161,7 +160,11 @@ impl BackendApi for GoApi {
             &mut used_gas as *mut u64,
         )
         .into();
-        let gas_info = GasInfo::with_cost(used_gas);
+        let mut gas_info = GasInfo::with_cost(used_gas);
+        let gas_limit = match caller_env.get_gas_left().checked_sub(used_gas) {
+            Some(renaming) => renaming,
+            None => return (Err(BackendError::out_of_gas()), gas_info),
+        };
 
         // return complete error message (reading from buffer for GoResult::Other)
         let default = || {
@@ -195,10 +198,6 @@ impl BackendApi for GoApi {
             None => return (Err(BackendError::unknown("invalid checksum")), gas_info),
         };
         let backend = into_backend(db, *self, querier);
-        let gas_limit = match gas.checked_sub(used_gas) {
-            Some(renaming) => renaming,
-            None => return (Err(BackendError::out_of_gas()), gas_info),
-        };
 
         let print_debug = false;
         let options = InstanceOptions {
@@ -224,12 +223,16 @@ impl BackendApi for GoApi {
             &arg_region_ptrs,
         ) {
             Ok(rets) => {
-                copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true).unwrap()
+                Ok(
+                    copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true)
+                        .unwrap(),
+                )
             }
-            Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
+            Err(e) => Err(BackendError::unknown(e.to_string())),
         };
+        gas_info.cost += callee_instance.create_gas_report().used_internally;
 
-        (Ok(call_ret), gas_info)
+        (call_ret, gas_info)
     }
 }
 
