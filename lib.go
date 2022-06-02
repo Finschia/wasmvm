@@ -390,35 +390,35 @@ func (vm *VM) IBCChannelOpen(
 	gasMeter GasMeter,
 	gasLimit uint64,
 	deserCost types.UFraction,
-) (uint64, error) {
+) (*types.IBC3ChannelOpenResponse, uint64, error) {
 	envBin, err := json.Marshal(env)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	msgBin, err := json.Marshal(msg)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	data, gasUsed, err := api.IBCChannelOpen(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return gasUsed, err
+		return nil, gasUsed, err
 	}
 
 	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
 	if gasLimit < gasForDeserialization+gasUsed {
-		return gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+		return nil, gasUsed, fmt.Errorf("insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
 	}
 	gasUsed += gasForDeserialization
 
 	var resp types.IBCChannelOpenResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
-		return gasUsed, err
+		return nil, gasUsed, err
 	}
 	if resp.Err != "" {
-		return gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
-	return gasUsed, nil
+	return resp.Ok, gasUsed, nil
 }
 
 // IBCChannelConnect is available on IBC-enabled contracts and is a hook to call into
@@ -519,7 +519,7 @@ func (vm *VM) IBCPacketReceive(
 	gasMeter GasMeter,
 	gasLimit uint64,
 	deserCost types.UFraction,
-) (*types.IBCReceiveResponse, uint64, error) {
+) (*types.IBCReceiveResult, uint64, error) {
 	envBin, err := json.Marshal(env)
 	if err != nil {
 		return nil, 0, err
@@ -544,10 +544,7 @@ func (vm *VM) IBCPacketReceive(
 	if err != nil {
 		return nil, gasUsed, err
 	}
-	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
-	}
-	return resp.Ok, gasUsed, nil
+	return &resp, gasUsed, nil
 }
 
 // IBCPacketAck is available on IBC-enabled contracts and is called when an
@@ -636,4 +633,11 @@ func (vm *VM) IBCPacketTimeout(
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
 	return resp.Ok, gasUsed, nil
+}
+
+// LibwasmvmVersion returns the version of the loaded library
+// at runtime. This can be used for debugging to verify the loaded version
+// matches the expected version.
+func LibwasmvmVersion() (string, error) {
+	return api.LibwasmvmVersion()
 }

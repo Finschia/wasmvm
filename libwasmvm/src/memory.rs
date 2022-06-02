@@ -138,32 +138,33 @@ impl U8SliceView {
 ///
 /// ```rust
 /// # use cosmwasm_vm::{BackendResult, GasInfo};
-/// # use wasmvm::{Db, GoResult, U8SliceView, UnmanagedVector};
+/// # use wasmvm::{Db, GoError, U8SliceView, UnmanagedVector};
 /// fn db_read(db: &Db, key: &[u8]) -> BackendResult<Option<Vec<u8>>> {
 ///
 ///     // Create a None vector in order to reserve memory for the result
-///     let mut result = UnmanagedVector::default();
+///     let mut output = UnmanagedVector::default();
 ///
 ///     // …
 ///     # let mut error_msg = UnmanagedVector::default();
 ///     # let mut used_gas = 0_u64;
 ///
-///     let go_result: GoResult = (db.vtable.read_db)(
+///     let go_error: GoError = (db.vtable.read_db)(
 ///         db.state,
 ///         db.gas_meter,
 ///         &mut used_gas as *mut u64,
 ///         U8SliceView::new(Some(key)),
 ///         // Go will create a new UnmanagedVector and override this address
-///         &mut result as *mut UnmanagedVector,
+///         &mut output as *mut UnmanagedVector,
 ///         &mut error_msg as *mut UnmanagedVector,
 ///     )
 ///     .into();
 ///
+///     // We now own the new UnmanagedVector written to the pointer and must destroy it
+///     let value = output.consume();
+///
 ///     // Some gas processing and error handling
 ///     # let gas_info = GasInfo::free();
 ///
-///     // We now own the new UnmanagedVector written to the pointer and must destroy it
-///     let value = result.consume();
 ///     (Ok(value), gas_info)
 /// }
 /// ```
@@ -205,12 +206,17 @@ impl UnmanagedVector {
     pub fn new(source: Option<Vec<u8>>) -> Self {
         match source {
             Some(data) => {
-                let mut data = mem::ManuallyDrop::new(data);
+                let (ptr, len, cap) = {
+                    // Can be replaced with Vec::into_raw_parts when stable
+                    // https://doc.rust-lang.org/std/vec/struct.Vec.html#method.into_raw_parts
+                    let mut data = mem::ManuallyDrop::new(data);
+                    (data.as_mut_ptr(), data.len(), data.capacity())
+                };
                 Self {
                     is_none: false,
-                    ptr: data.as_mut_ptr(),
-                    len: data.len(),
-                    cap: data.capacity(),
+                    ptr,
+                    len,
+                    cap,
                 }
             }
             None => Self {
@@ -243,12 +249,7 @@ impl UnmanagedVector {
 
 impl Default for UnmanagedVector {
     fn default() -> Self {
-        Self {
-            is_none: true,
-            ptr: std::ptr::null_mut::<u8>(),
-            len: 0,
-            cap: 0,
-        }
+        Self::new(None)
     }
 }
 
@@ -289,7 +290,7 @@ mod test {
         assert_eq!(view.read().unwrap(), &[] as &[u8]);
 
         let view = ByteSliceView::nil();
-        assert_eq!(view.read().is_none(), true);
+        assert!(view.read().is_none());
     }
 
     #[test]
@@ -303,27 +304,51 @@ mod test {
         assert_eq!(view.to_owned().unwrap(), Vec::<u8>::new());
 
         let view = ByteSliceView::nil();
-        assert_eq!(view.to_owned().is_none(), true);
+        assert!(view.to_owned().is_none());
+    }
+
+    #[test]
+    fn unmanaged_vector_new_works() {
+        // With data
+        let x = UnmanagedVector::new(Some(vec![0x11, 0x22]));
+        assert!(!x.is_none);
+        assert_ne!(x.ptr as usize, 0);
+        assert_eq!(x.len, 2);
+        assert_eq!(x.cap, 2);
+
+        // Empty data
+        let x = UnmanagedVector::new(Some(vec![]));
+        assert!(!x.is_none);
+        assert_eq!(x.ptr as usize, 0x01); // We probably don't get any guarantee for this, but good to know where the 0x01 marker pointer can come from
+        assert_eq!(x.len, 0);
+        assert_eq!(x.cap, 0);
+
+        // None
+        let x = UnmanagedVector::new(None);
+        assert!(x.is_none);
+        assert_eq!(x.ptr as usize, 0);
+        assert_eq!(x.len, 0);
+        assert_eq!(x.cap, 0);
     }
 
     #[test]
     fn unmanaged_vector_is_some_works() {
         let x = UnmanagedVector::new(Some(vec![0x11, 0x22]));
-        assert_eq!(x.is_some(), true);
+        assert!(x.is_some());
         let x = UnmanagedVector::new(Some(vec![]));
-        assert_eq!(x.is_some(), true);
+        assert!(x.is_some());
         let x = UnmanagedVector::new(None);
-        assert_eq!(x.is_some(), false);
+        assert!(!x.is_some());
     }
 
     #[test]
     fn unmanaged_vector_is_none_works() {
         let x = UnmanagedVector::new(Some(vec![0x11, 0x22]));
-        assert_eq!(x.is_none(), false);
+        assert!(!x.is_none());
         let x = UnmanagedVector::new(Some(vec![]));
-        assert_eq!(x.is_none(), false);
+        assert!(!x.is_none());
         let x = UnmanagedVector::new(None);
-        assert_eq!(x.is_none(), true);
+        assert!(x.is_none());
     }
 
     #[test]
