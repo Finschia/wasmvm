@@ -127,7 +127,7 @@ func TestRetrieveIterator(t *testing.T) {
 	callID2 := startCall()
 
 	store := dbm.NewMemDB()
-	var iter dbm.Iterator
+	var iter Iterator
 	var err error
 
 	iter, _ = store.Iterator(nil, nil)
