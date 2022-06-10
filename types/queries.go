@@ -332,7 +332,7 @@ type BondedDenomResponse struct {
 // The caller is responsible for compiling the proper protobuf definitions for both requests and responses.
 type StargateQuery struct {
 	// this is the fully qualified service path used for routing,
-	// eg. custom/lfb_sdk.x.bank.v1.Query/QueryBalance
+	// eg. custom/lbm_sdk.x.bank.v1.Query/QueryBalance
 	Path string `json:"path"`
 	// this is the expected protobuf message type (not any), binary encoded
 	Data []byte `json:"data"`

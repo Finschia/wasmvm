@@ -14,7 +14,7 @@ docker-image-alpine:
 
 .PHONY: docker-image-static
 docker-image-static:
-	docker build . -t $(BUILDERS_PREFIX):static -f ./Dockerfile.static
+	docker build --pull . -t $(BUILDERS_PREFIX):static -f ./Dockerfile.static
 
 .PHONY: docker-images
 docker-images: docker-image-centos7 docker-image-cross docker-image-alpine docker-image-static
