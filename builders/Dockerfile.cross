@@ -1,6 +1,6 @@
 # > docker build -t line/wasmvm-builder:cross -f Dockerfile.cross .
 
-FROM rust:1.60.0-bullseye
+FROM rust:1.57.0-bullseye
 
 # Install build dependencies
 RUN apt-get update \
