@@ -113,14 +113,10 @@ func TestIBCHandshake(t *testing.T) {
 	gasMeter2 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
 	store.SetGasMeter(gasMeter2)
 	env = api.MockEnv()
-	// fails on bad version
-	openMsg := api.MockIBCChannelOpenInit(CHANNEL_ID, types.Ordered, "random-garbage")
-	_, err = vm.IBCChannelOpen(checksum, env, openMsg, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
-	require.Error(t, err)
-	// passes on good version
-	openMsg = api.MockIBCChannelOpenInit(CHANNEL_ID, types.Ordered, IBC_VERSION)
-	_, err = vm.IBCChannelOpen(checksum, env, openMsg, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
+	openMsg := api.MockIBCChannelOpenInit(CHANNEL_ID, types.Ordered, IBC_VERSION)
+	ores, _, err := vm.IBCChannelOpen(checksum, env, openMsg, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
+	require.Equal(t, &types.IBC3ChannelOpenResponse{Version: "ibc-reflect-v1"}, ores)
 
 	// channel connect
 	gasMeter3 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -133,9 +129,9 @@ func TestIBCHandshake(t *testing.T) {
 	require.Equal(t, 1, len(res.Messages))
 
 	// check for the expected custom event
-	expected_events := []types.Event{types.Event{
+	expected_events := []types.Event{{
 		Type: "ibc",
-		Attributes: []types.EventAttribute{types.EventAttribute{
+		Attributes: []types.EventAttribute{{
 			Key:   "channel",
 			Value: "connect",
 		}},
@@ -183,8 +179,9 @@ func TestIBCPacketDispatch(t *testing.T) {
 	gasMeter2 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
 	store.SetGasMeter(gasMeter2)
 	openMsg := api.MockIBCChannelOpenInit(CHANNEL_ID, types.Ordered, IBC_VERSION)
-	_, err = vm.IBCChannelOpen(checksum, env, openMsg, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
+	ores, _, err := vm.IBCChannelOpen(checksum, env, openMsg, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
+	require.Equal(t, &types.IBC3ChannelOpenResponse{Version: "ibc-reflect-v1"}, ores)
 
 	// channel connect
 	gasMeter3 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -201,15 +198,11 @@ func TestIBCPacketDispatch(t *testing.T) {
 	store.SetGasMeter(gasMeter4)
 	reply := types.Reply{
 		ID: id,
-		Result: types.SubcallResult{
-			Ok: &types.SubcallResponse{
+		Result: types.SubMsgResult{
+			Ok: &types.SubMsgResponse{
 				Events: types.Events{{
-					Type: "message",
+					Type: "instantiate",
 					Attributes: types.EventAttributes{
-						{
-							Key:   "module",
-							Value: "wasm",
-						},
 						{
 							Key:   "_contract_address",
 							Value: REFLECT_ADDR,
@@ -249,8 +242,10 @@ func TestIBCPacketDispatch(t *testing.T) {
 		},
 	}
 	msg := api.MockIBCPacketReceive(CHANNEL_ID, toBytes(t, ibcMsg))
-	pres, _, err := vm.IBCPacketReceive(checksum, env, msg, store, *goapi, querier, gasMeter5, TESTING_GAS_LIMIT, deserCost)
+	pr, _, err := vm.IBCPacketReceive(checksum, env, msg, store, *goapi, querier, gasMeter5, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
+	assert.NotNil(t, pr.Ok)
+	pres := pr.Ok
 
 	// assert app-level success
 	var ack AcknowledgeDispatch
@@ -259,17 +254,19 @@ func TestIBCPacketDispatch(t *testing.T) {
 
 	// error on message from another channel
 	msg2 := api.MockIBCPacketReceive("no-such-channel", toBytes(t, ibcMsg))
-	pres2, _, err := vm.IBCPacketReceive(checksum, env, msg2, store, *goapi, querier, gasMeter5, TESTING_GAS_LIMIT, deserCost)
+	pr2, _, err := vm.IBCPacketReceive(checksum, env, msg2, store, *goapi, querier, gasMeter5, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
+	assert.NotNil(t, pr.Ok)
+	pres2 := pr2.Ok
 	// assert app-level failure
 	var ack2 AcknowledgeDispatch
 	err = json.Unmarshal(pres2.Acknowledgement, &ack2)
 	require.Equal(t, "invalid packet: cosmwasm_std::addresses::Addr not found", ack2.Err)
 
 	// check for the expected custom event
-	expected_events := []types.Event{types.Event{
+	expected_events := []types.Event{{
 		Type: "ibc",
-		Attributes: []types.EventAttribute{types.EventAttribute{
+		Attributes: []types.EventAttribute{{
 			Key:   "packet",
 			Value: "receive",
 		}},
@@ -300,7 +297,7 @@ func TestAnalyzeCode(t *testing.T) {
 	report2, err := vm.AnalyzeCode(checksum2)
 	require.NoError(t, err)
 	require.True(t, report2.HasIBCEntryPoints)
-	require.Equal(t, "staking,stargate", report2.RequiredFeatures)
+	require.Equal(t, "iterator,stargate", report2.RequiredFeatures)
 }
 
 func TestIBCMsgGetChannel(t *testing.T) {

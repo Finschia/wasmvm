@@ -1,7 +1,7 @@
-use cosmwasm_std::Pair;
+use cosmwasm_std::Record;
 use cosmwasm_vm::{BackendError, BackendResult, GasInfo};
 
-use crate::error::GoResult;
+use crate::error::GoError;
 use crate::gas_meter::gas_meter_t;
 use crate::memory::UnmanagedVector;
 
@@ -9,12 +9,13 @@ use crate::memory::UnmanagedVector;
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
 pub struct iterator_t {
-    pub db_counter: u64,
+    /// An ID assigned to this contract call
+    pub call_id: u64,
     pub iterator_index: u64,
 }
 
-// These functions should return GoResult but because we don't trust them here, we treat the return value as i32
-// and then check it when converting to GoResult manually
+// These functions should return GoError but because we don't trust them here, we treat the return value as i32
+// and then check it when converting to GoError manually
 #[repr(C)]
 #[derive(Default)]
 pub struct Iterator_vtable {
@@ -46,7 +47,7 @@ impl GoIter {
         }
     }
 
-    pub fn next(&mut self) -> BackendResult<Option<Pair>> {
+    pub fn next(&mut self) -> BackendResult<Option<Record>> {
         let next_db = match self.vtable.next_db {
             Some(f) => f,
             None => {
@@ -55,32 +56,36 @@ impl GoIter {
             }
         };
 
-        let mut key = UnmanagedVector::default();
-        let mut value = UnmanagedVector::default();
+        let mut output_key = UnmanagedVector::default();
+        let mut output_value = UnmanagedVector::default();
         let mut error_msg = UnmanagedVector::default();
         let mut used_gas = 0_u64;
-        let go_result: GoResult = (next_db)(
+        let go_result: GoError = (next_db)(
             self.state,
             self.gas_meter,
             &mut used_gas as *mut u64,
-            &mut key as *mut UnmanagedVector,
-            &mut value as *mut UnmanagedVector,
+            &mut output_key as *mut UnmanagedVector,
+            &mut output_value as *mut UnmanagedVector,
             &mut error_msg as *mut UnmanagedVector,
         )
         .into();
+        // We destruct the `UnmanagedVector`s here, no matter if we need the data.
+        let output_key = output_key.consume();
+        let output_value = output_value.consume();
+
         let gas_info = GasInfo::with_externally_used(used_gas);
 
-        // return complete error message (reading from buffer for GoResult::Other)
+        // return complete error message (reading from buffer for GoError::Other)
         let default = || "Failed to fetch next item from iterator".to_string();
         unsafe {
-            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+            if let Err(err) = go_result.into_result(error_msg, default) {
                 return (Err(err), gas_info);
             }
         }
 
-        let result = match key.consume() {
+        let result = match output_key {
             Some(key) => {
-                if let Some(value) = value.consume() {
+                if let Some(value) = output_value {
                     Ok(Some((key, value)))
                 } else {
                     Err(BackendError::unknown(

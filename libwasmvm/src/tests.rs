@@ -14,6 +14,7 @@ static CONTRACT: &[u8] = include_bytes!("../../api/testdata/hackatom.wasm");
 const PRINT_DEBUG: bool = false;
 const MEMORY_CACHE_SIZE: Size = Size::mebi(200);
 const MEMORY_LIMIT: Size = Size::mebi(32);
+const GAS_LIMIT: u64 = 200_000_000_000; // ~0.2ms
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct InstantiateMsg {
@@ -27,8 +28,8 @@ fn make_instantiate_msg() -> (InstantiateMsg, String) {
     let creator = String::from("creator");
     (
         InstantiateMsg {
-            verifier: verifier.clone(),
-            beneficiary: beneficiary.clone(),
+            verifier,
+            beneficiary,
         },
         creator,
     )
@@ -46,7 +47,7 @@ fn handle_cpu_loop_with_cache() {
     let cache = unsafe { Cache::new(options) }.unwrap();
 
     let options = InstanceOptions {
-        gas_limit: 2_000_000,
+        gas_limit: GAS_LIMIT,
         print_debug: PRINT_DEBUG,
     };
 
@@ -82,7 +83,7 @@ fn handle_cpu_loop_with_cache() {
 
 #[test]
 fn handle_cpu_loop_no_cache() {
-    let gas_limit = 2_000_000u64;
+    let gas_limit = GAS_LIMIT;
     let mut instance = mock_instance_with_gas_limit(CONTRACT, gas_limit);
 
     // instantiate

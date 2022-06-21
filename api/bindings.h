@@ -18,34 +18,40 @@ typedef int32_t ErrnoValue;
 
 /**
  * This enum gives names to the status codes returned from Go callbacks to Rust.
+ * The Go code will return one of these variants when returning.
  *
- * The go code will return one of these variants when returning.
+ * 0 means no error, all the other cases are some sort of error.
  *
  */
-enum GoResult {
-  GoResult_Ok = 0,
+enum GoError {
+  GoError_None = 0,
   /**
    * Go panicked for an unexpected reason.
    */
-  GoResult_Panic = 1,
+  GoError_Panic = 1,
   /**
    * Go received a bad argument from Rust
    */
-  GoResult_BadArgument = 2,
+  GoError_BadArgument = 2,
   /**
-   * Ran out of gas while using the SDK (e.g. storage)
+   * Ran out of gas while using the SDK (e.g. storage). This can come from the Cosmos SDK gas meter
+   * (https://github.com/cosmos/cosmos-sdk/blob/v0.45.4/store/types/gas.go#L29-L32).
    */
-  GoResult_OutOfGas = 3,
+  GoError_OutOfGas = 3,
   /**
-   * An error happened during normal operation of a Go callback, which should abort the contract
+   * Error while trying to serialize data in Go code (typically json.Marshal)
    */
-  GoResult_Other = 4,
+  GoError_CannotSerialize = 4,
   /**
    * An error happened during normal operation of a Go callback, which should be fed back to the contract
    */
-  GoResult_User = 5,
+  GoError_User = 5,
+  /**
+   * An error type that should never be created by us. It only serves as a fallback for the i32 to GoError conversion.
+   */
+  GoError_Other = -1,
 };
-typedef int32_t GoResult;
+typedef int32_t GoError;
 
 typedef struct cache_t {
 
@@ -124,32 +130,33 @@ typedef struct ByteSliceView {
  *
  * ```rust
  * # use cosmwasm_vm::{BackendResult, GasInfo};
- * # use wasmvm::{Db, GoResult, U8SliceView, UnmanagedVector};
+ * # use wasmvm::{Db, GoError, U8SliceView, UnmanagedVector};
  * fn db_read(db: &Db, key: &[u8]) -> BackendResult<Option<Vec<u8>>> {
  *
  *     // Create a None vector in order to reserve memory for the result
- *     let mut result = UnmanagedVector::default();
+ *     let mut output = UnmanagedVector::default();
  *
  *     // …
  *     # let mut error_msg = UnmanagedVector::default();
  *     # let mut used_gas = 0_u64;
  *
- *     let go_result: GoResult = (db.vtable.read_db)(
+ *     let go_error: GoError = (db.vtable.read_db)(
  *         db.state,
  *         db.gas_meter,
  *         &mut used_gas as *mut u64,
  *         U8SliceView::new(Some(key)),
  *         // Go will create a new UnmanagedVector and override this address
- *         &mut result as *mut UnmanagedVector,
+ *         &mut output as *mut UnmanagedVector,
  *         &mut error_msg as *mut UnmanagedVector,
  *     )
  *     .into();
  *
+ *     // We now own the new UnmanagedVector written to the pointer and must destroy it
+ *     let value = output.consume();
+ *
  *     // Some gas processing and error handling
  *     # let gas_info = GasInfo::free();
  *
- *     // We now own the new UnmanagedVector written to the pointer and must destroy it
- *     let value = result.consume();
  *     (Ok(value), gas_info)
  * }
  * ```
@@ -239,7 +246,10 @@ typedef struct U8SliceView {
 } U8SliceView;
 
 typedef struct iterator_t {
-  uint64_t db_counter;
+  /**
+   * An ID assigned to this contract call
+   */
+  uint64_t call_id;
   uint64_t iterator_index;
 } iterator_t;
 
@@ -476,3 +486,10 @@ struct UnmanagedVector ibc_packet_timeout(struct cache_t *cache,
 struct UnmanagedVector new_unmanaged_vector(bool nil, const uint8_t *ptr, uintptr_t length);
 
 void destroy_unmanaged_vector(struct UnmanagedVector v);
+
+/**
+ * Returns a version number of this library as a C string.
+ *
+ * The string is owned by libwasmvm and must not be mutated or destroyed by the caller.
+ */
+const char *version_str(void);

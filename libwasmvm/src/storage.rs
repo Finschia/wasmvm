@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use cosmwasm_std::{Order, Pair};
+use cosmwasm_std::{Order, Record};
 use cosmwasm_vm::{BackendError, BackendResult, GasInfo, Storage};
 
 use crate::db::Db;
-use crate::error::GoResult;
+use crate::error::GoError;
 use crate::iterator::GoIter;
 use crate::memory::{U8SliceView, UnmanagedVector};
 
@@ -25,21 +25,24 @@ impl GoStorage {
 
 impl Storage for GoStorage {
     fn get(&self, key: &[u8]) -> BackendResult<Option<Vec<u8>>> {
-        let mut result = UnmanagedVector::default();
+        let mut output = UnmanagedVector::default();
         let mut error_msg = UnmanagedVector::default();
         let mut used_gas = 0_u64;
-        let go_result: GoResult = (self.db.vtable.read_db)(
+        let go_error: GoError = (self.db.vtable.read_db)(
             self.db.state,
             self.db.gas_meter,
             &mut used_gas as *mut u64,
             U8SliceView::new(Some(key)),
-            &mut result as *mut UnmanagedVector,
+            &mut output as *mut UnmanagedVector,
             &mut error_msg as *mut UnmanagedVector,
         )
         .into();
+        // We destruct the UnmanagedVector here, no matter if we need the data.
+        let output = output.consume();
+
         let gas_info = GasInfo::with_externally_used(used_gas);
 
-        // return complete error message (reading from buffer for GoResult::Other)
+        // return complete error message (reading from buffer for GoError::Other)
         let default = || {
             format!(
                 "Failed to read a key in the db: {}",
@@ -47,13 +50,12 @@ impl Storage for GoStorage {
             )
         };
         unsafe {
-            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+            if let Err(err) = go_error.into_result(error_msg, default) {
                 return (Err(err), gas_info);
             }
         }
 
-        let value = result.consume();
-        (Ok(value), gas_info)
+        (Ok(output), gas_info)
     }
 
     fn scan(
@@ -65,7 +67,7 @@ impl Storage for GoStorage {
         let mut error_msg = UnmanagedVector::default();
         let mut iter = GoIter::new(self.db.gas_meter);
         let mut used_gas = 0_u64;
-        let go_result: GoResult = (self.db.vtable.scan_db)(
+        let go_error: GoError = (self.db.vtable.scan_db)(
             self.db.state,
             self.db.gas_meter,
             &mut used_gas as *mut u64,
@@ -78,7 +80,7 @@ impl Storage for GoStorage {
         .into();
         let gas_info = GasInfo::with_externally_used(used_gas);
 
-        // return complete error message (reading from buffer for GoResult::Other)
+        // return complete error message (reading from buffer for GoError::Other)
         let default = || {
             format!(
                 "Failed to read the next key between {:?} and {:?}",
@@ -87,7 +89,7 @@ impl Storage for GoStorage {
             )
         };
         unsafe {
-            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+            if let Err(err) = go_error.into_result(error_msg, default) {
                 return (Err(err), gas_info);
             }
         }
@@ -101,7 +103,7 @@ impl Storage for GoStorage {
         (Ok(next_id), gas_info)
     }
 
-    fn next(&mut self, iterator_id: u32) -> BackendResult<Option<Pair>> {
+    fn next(&mut self, iterator_id: u32) -> BackendResult<Option<Record>> {
         let iterator = match self.iterators.get_mut(&iterator_id) {
             Some(i) => i,
             None => {
@@ -117,7 +119,7 @@ impl Storage for GoStorage {
     fn set(&mut self, key: &[u8], value: &[u8]) -> BackendResult<()> {
         let mut error_msg = UnmanagedVector::default();
         let mut used_gas = 0_u64;
-        let go_result: GoResult = (self.db.vtable.write_db)(
+        let go_error: GoError = (self.db.vtable.write_db)(
             self.db.state,
             self.db.gas_meter,
             &mut used_gas as *mut u64,
@@ -127,7 +129,7 @@ impl Storage for GoStorage {
         )
         .into();
         let gas_info = GasInfo::with_externally_used(used_gas);
-        // return complete error message (reading from buffer for GoResult::Other)
+        // return complete error message (reading from buffer for GoError::Other)
         let default = || {
             format!(
                 "Failed to set a key in the db: {}",
@@ -135,7 +137,7 @@ impl Storage for GoStorage {
             )
         };
         unsafe {
-            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+            if let Err(err) = go_error.into_result(error_msg, default) {
                 return (Err(err), gas_info);
             }
         }
@@ -145,7 +147,7 @@ impl Storage for GoStorage {
     fn remove(&mut self, key: &[u8]) -> BackendResult<()> {
         let mut error_msg = UnmanagedVector::default();
         let mut used_gas = 0_u64;
-        let go_result: GoResult = (self.db.vtable.remove_db)(
+        let go_error: GoError = (self.db.vtable.remove_db)(
             self.db.state,
             self.db.gas_meter,
             &mut used_gas as *mut u64,
@@ -161,7 +163,7 @@ impl Storage for GoStorage {
             )
         };
         unsafe {
-            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+            if let Err(err) = go_error.into_result(error_msg, default) {
                 return (Err(err), gas_info);
             }
         }
