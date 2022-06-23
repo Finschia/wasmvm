@@ -8,62 +8,41 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  CARGO_HOME: /.cargo
 
 jobs:
-  package-version: # emit package version using `cargo tree -i`
+  get-version: # emit package version using `cargo tree -i`
     name: Get Package Version
     runs-on: ubuntu-latest
-    container: rust:1.54.0-slim
     outputs:
-      version: ${{ steps.get-version.outputs.version }}
+      package-version: ${{ steps.get-package-version.outputs.version }}
+      latest-tag: ${{ steps.get-latest-tag.outputs.tag }}
     steps:
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.57.0
+          profile: minimal
+          override: true
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Cache cargo
-        uses: actions/cache@v2
-        with:
-          path: |
-            ${{ env.CARGO_HOME }}/bin/
-            ${{ env.CARGO_HOME }}/registry/index/
-            ${{ env.CARGO_HOME }}/registry/cache/
-            ${{ env.CARGO_HOME }}/git/db/
-          key: ${{ runner.os }}-cargo-home-${{ hashFiles('**/Cargo.lock') }}
+      - name: Get latest tag
+        id: get-latest-tag
+        uses: actions-ecosystem/action-get-latest-tag@v1
       - name: Get package version
-        id: get-version
+        id: get-package-version
         working-directory: ./libwasmvm
         run: |
           VERSION=$(cargo tree -i wasmvm | grep -oE "[0-9]+(\.[0-9]+){2}-[0-9]+(\.[0-9]+){2}")
-          echo ::set-output name=version::${VERSION}
-  check-version: # check whether the package version exist on git tags
-    name: Check Version
-    needs: package-version
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.result.outputs.result }}
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dudo/tag_check@v1.1.1
-        id: tag-check
-        continue-on-error: true
-        with:
-          version: ${{ needs.package-version.outputs.version }}
-          git_tag_prefix: v
-      - id: result
-        run: |
-          RESULT=""
-          if [ ${{ steps.tag-check.outcome }} == 'success' ] ; then
-            RESULT=${{ steps.tag-check.outputs.git_tag_name }}
-          fi
-          echo ::set-output name=result::${RESULT}
+            echo ::set-output name=version::v$VERSION
   push-tag: # if the version does not exist as git tag, push it
     name: Push Tag
-    needs: check-version
-    if: ${{ needs.check-version.outputs.tag }}
+    needs:
+      - get-version
+    if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
     runs-on: ubuntu-latest
     steps:
       - name: Push Tag to GitHub
         run: |
           curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-          -d "{\"ref\": \"refs/tags/${{ needs.check-version.outputs.tag }}\", \"sha\": \"${GITHUB_SHA}\"}" \
+          -d "{\"ref\": \"refs/tags/${{ needs.get-version.outputs.package-version }}\", \"sha\": \"${GITHUB_SHA}\"}" \
           "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs"
