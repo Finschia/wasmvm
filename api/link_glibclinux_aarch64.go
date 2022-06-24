@@ -1,4 +1,5 @@
-//go:build linux && !muslc && arm64
+//go:build linux && !static && arm64
+// +build linux,!static,arm64
 
 package api
 

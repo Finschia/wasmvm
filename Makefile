@@ -69,21 +69,21 @@ release-build-alpine:
 	rm -rf libwasmvm/target/release
 	# build the muslc *.a file
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd)/libwasmvm:/code $(BUILDERS_PREFIX):alpine
-	cp libwasmvm/artifacts/libwasmvm_muslc.a api
-	cp libwasmvm/artifacts/libwasmvm_muslc.aarch64.a api
+	cp libwasmvm/artifacts/libwasmvm_static.a api
+	cp libwasmvm/artifacts/libwasmvm_static.aarch64.a api
 	make update-bindings
 	# try running go tests using this lib with muslc
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER):alpine go build -tags muslc ./...
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(BUILDERS_PREFIX):alpine go build -tags static ./...
 	# Use package list mode to include all subdirectores. The -count=1 turns off caching.
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER):alpine go test -tags 'muslc mocks' -count=1 ./...
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(BUILDERS_PREFIX):alpine go test -tags 'static mocks' -count=1 ./...
 
 # Creates a release build in a containerized build environment of the static library for glibc Linux (.a)
 release-build-linux-static:
 	rm -rf libwasmvm/target/release
 	# build the glibc *.a file
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd)/libwasmvm:/code $(BUILDERS_PREFIX):static
-	cp libwasmvm/artifacts/libwasmvm_muslc.a api
-	cp libwasmvm/artifacts/libwasmvm_muslc.aarch64.a api
+	cp libwasmvm/artifacts/libwasmvm_static.a api
+	cp libwasmvm/artifacts/libwasmvm_static.aarch64.a api
 	make update-bindings
 	# try running go tests using this lib with muslc
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER):static go build -tags static ./...
