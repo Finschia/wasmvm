@@ -54,4 +54,4 @@ RUN mkdir /.cargo
 RUN chmod +rx /.cargo
 COPY guest/cargo-config /.cargo/config
 
-CMD ["/opt/build_muslc.sh"]
+CMD ["/opt/build_linux_static.sh"]
