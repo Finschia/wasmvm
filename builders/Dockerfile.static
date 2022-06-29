@@ -1,6 +1,6 @@
 # > docker build -t line/wasmvm-builder:static -f Dockerfile.static .
 
-FROM golang:1.17
+FROM golang:1.18.3
 
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \

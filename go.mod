@@ -1,6 +1,6 @@
 module github.com/line/wasmvm
 
-go 1.17
+go 1.18
 
 require (
 	github.com/line/tm-db/v2 v2.0.0-init.1.0.20220121012851-61d2bc1d9486
