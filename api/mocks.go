@@ -1,6 +1,3 @@
-//go:build mocks
-// +build mocks
-
 package api
 
 import (
@@ -179,7 +176,7 @@ func MockIBCPacketTimeout(myChannel string, data []byte) types.IBCPacketTimeoutM
 }
 
 /*** Mock GasMeter ****/
-// This code is borrowed from lfb-sdk store/types/gas.go
+// This code is borrowed from lbm-sdk store/types/gas.go
 
 // ErrorOutOfGas defines an error thrown when an action results in out of gas.
 type ErrorOutOfGas struct {
@@ -242,7 +239,7 @@ func (g *mockGasMeter) ConsumeGas(amount Gas, descriptor string) {
 }
 
 /*** Mock KVStore ****/
-// Much of this code is borrowed from lfb-sdk store/transient.go
+// Much of this code is borrowed from lbm-sdk store/transient.go
 
 // Note: these gas prices are all in *wasmer gas* and (sdk gas * 100)
 //

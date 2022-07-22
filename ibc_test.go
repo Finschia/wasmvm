@@ -1,6 +1,3 @@
-//go:build mocks
-// +build mocks
-
 package cosmwasm
 
 import (

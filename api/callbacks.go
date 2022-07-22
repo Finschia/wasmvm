@@ -92,17 +92,17 @@ func recoverPanic(ret *C.GoError) {
 
 type Gas = uint64
 
-// GasMeter is a copy of an interface declaration from lfb-sdk
-// Defined in https://github.com/line/lfb-sdk/blob/main/store/types/gas.go
+// GasMeter is a copy of an interface declaration from lbm-sdk
+// Defined in https://github.com/line/lbm-sdk/blob/main/store/types/gas.go
 type GasMeter interface {
 	GasConsumed() Gas
 }
 
 /****** DB ********/
 
-// KVStore copies a subset of types from lfb-sdk
+// KVStore copies a subset of types from lbm-sdk
 // We may wish to make this more generic sometime in the future, but not now
-// Original KVStore is defined in https://github.com/line/lfb-sdk/blob/main/store/types/store.go
+// Original KVStore is defined in https://github.com/line/lbm-sdk/blob/main/store/types/store.go
 type KVStore interface {
 	Get(key []byte) []byte
 	Set(key, value []byte)
@@ -120,7 +120,7 @@ type KVStore interface {
 	ReverseIterator(start, end []byte) Iterator
 }
 
-// Iterator copies a subset of types from lfb-sdk
+// Iterator copies a subset of types from lbm-sdk
 type Iterator interface {
 	// Valid returns whether the current iterator is valid. Once invalid, the Iterator remains
 	// invalid forever.
