@@ -1,5 +1,3 @@
-# > docker build -t line/wasmvm-builder:alpine -f Dockerfile.alpine .
-
 # This image is used for two things (which is not ideal, but yeah):
 # 1. Build the static Rust library
 # 2. Execute Go tests that use and test this library
@@ -54,4 +52,4 @@ RUN mkdir /.cargo
 RUN chmod +rx /.cargo
 COPY guest/cargo-config /.cargo/config
 
-CMD ["/opt/build_linux_static.sh"]
+CMD ["/opt/build_muslc.sh"]
