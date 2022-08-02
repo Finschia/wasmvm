@@ -135,7 +135,6 @@ jobs:
           path: ./api/libwasmvm.x86_64.so
 
   build_static_lib:
-    needs: build_shared_library
     runs-on: ubuntu-latest
     steps:
       - name: set up
@@ -147,8 +146,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Build docker image
         run: cd builders && make docker-image-alpine
-      - name: Test for static library
-        # Run tests for the built static library.
+      - name: Build & Test static library
         run: make release-build-alpine
 
   test:
