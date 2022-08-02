@@ -84,6 +84,7 @@ jobs:
     name: Update Latest release
     needs:
       - push-tag
+      - build_static_lib
     if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
     runs-on: ubuntu-latest
     steps:

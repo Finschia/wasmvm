@@ -147,7 +147,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Build docker image
         run: cd builders && make docker-image-alpine
-      - name: Build static library for Alpine
+      - name: Test for static library
+        # Run tests for the built static library.
         run: make release-build-alpine
 
   test:
