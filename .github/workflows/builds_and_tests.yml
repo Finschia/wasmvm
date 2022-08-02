@@ -135,7 +135,6 @@ jobs:
           path: ./api/libwasmvm.x86_64.so
 
   build_static_lib:
-    needs: build_shared_library
     runs-on: ubuntu-latest
     steps:
       - name: set up
