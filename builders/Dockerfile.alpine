@@ -1,3 +1,14 @@
+# Install C compiler for cross-compilation. This is required by
+# Wasmer in https://github.com/wasmerio/wasmer/blob/2.2.1/lib/vm/build.rs.
+# For newer versions this might not be needed anymore since build.rs is removed
+# in https://github.com/wasmerio/wasmer/pull/2807.
+#
+# https://unix.stackexchange.com/questions/620205/aarch64-linux-musl-cross-has-a-broken-link-for-ld-musl-aarch64-so-1
+
+# We need aarch64-linux-musl-cross to compile, wget to musl.cc is denied by github actions.
+# We will use a copy from an image that already contains aarch64-linux-musl-cross.
+FROM mondoolabs/golang:1.15.0-alpine AS builder
+
 # This image is used for two things (which is not ideal, but yeah):
 # 1. Build the static Rust library
 # 2. Execute Go tests that use and test this library
@@ -8,29 +19,15 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 
+RUN apk add rustup
+
 # this comes from standard alpine nightly file
 #  https://github.com/rust-lang/docker-rust-nightly/blob/master/alpine3.12/Dockerfile
 # with some changes to support our toolchain, etc
 RUN set -eux \
     && apk add --no-cache ca-certificates build-base
 
-RUN wget "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-musl/rustup-init" \
-  && chmod +x rustup-init \
-  && ./rustup-init -y --no-modify-path --profile minimal --default-toolchain 1.57.0 \
-  && rm rustup-init \
-  && chmod -R a+w $RUSTUP_HOME $CARGO_HOME
-
-# Install C compiler for cross-compilation. This is required by
-# Wasmer in https://github.com/wasmerio/wasmer/blob/2.2.1/lib/vm/build.rs.
-# For newer versions this might not be needed anymore since build.rs is removed
-# in https://github.com/wasmerio/wasmer/pull/2807.
-#
-# https://unix.stackexchange.com/questions/620205/aarch64-linux-musl-cross-has-a-broken-link-for-ld-musl-aarch64-so-1
-RUN wget https://musl.cc/aarch64-linux-musl-cross.tgz \
-  && tar -xf aarch64-linux-musl-cross.tgz \
-  && mv ./aarch64-linux-musl-cross /opt \
-  && /opt/aarch64-linux-musl-cross/bin/aarch64-linux-musl-gcc --version \
-  && rm aarch64-linux-musl-cross.tgz
+RUN rustup-init -y --no-modify-path --profile minimal --default-toolchain 1.57.0
 
 # prepare go cache dirs
 RUN mkdir -p /.cache/go-build
@@ -41,6 +38,10 @@ RUN chmod -R 777 /usr/local/cargo
 
 ## COPY BUILD SCRIPTS
 WORKDIR /code
+
+COPY --from=builder \
+    /usr/local/bin/aarch64-linux-musl-cross \
+    /opt/aarch64-linux-musl-cross
 
 # Add musl Rust targets
 RUN rustup target add aarch64-unknown-linux-musl x86_64-unknown-linux-musl

@@ -134,6 +134,21 @@ jobs:
           name: libwasmvm
           path: ./api/libwasmvm.x86_64.so
 
+  build_static_lib:
+    runs-on: ubuntu-latest
+    steps:
+      - name: set up
+        uses: actions/setup-go@v3.2.1
+        with:
+          go-version: 1.18
+        id: go
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build docker image
+        run: cd builders && make docker-image-alpine
+      - name: Build & Test static library
+        run: make release-build-alpine
+
   test:
     needs: build_shared_library
     runs-on: ubuntu-latest
