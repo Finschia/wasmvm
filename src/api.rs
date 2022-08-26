@@ -228,7 +228,7 @@ impl BackendApi for GoApi {
                         .unwrap(),
                 )
             }
-            Err(e) => Err(BackendError::unknown(e.to_string())),
+            Err(e) => Err(BackendError::dynamic_link_err(e.to_string())),
         };
         gas_info.cost += callee_instance.create_gas_report().used_internally;
 
