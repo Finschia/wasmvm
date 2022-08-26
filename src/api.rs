@@ -1,6 +1,7 @@
 use cosmwasm_vm::{
-    copy_region_vals_between_env, Backend, BackendApi, BackendError, BackendResult, Checksum,
-    Environment, FunctionMetadata, GasInfo, InstanceOptions, Querier, Storage, WasmerVal,
+    copy_region_vals_between_env, write_value_to_env, Backend, BackendApi, BackendError,
+    BackendResult, Checksum, Environment, FunctionMetadata, GasInfo, InstanceOptions, Querier,
+    Storage, WasmerVal,
 };
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
@@ -215,8 +216,14 @@ impl BackendApi for GoApi {
             Err(e) => return (Err(BackendError::user_err(e.to_string())), gas_info),
         }
 
-        let arg_region_ptrs =
-            copy_region_vals_between_env(caller_env, &callee_instance.env, args, false).unwrap();
+        let env_arg_region_ptr = write_value_to_env(&callee_instance.env, &contract_env).unwrap();
+        let mut copied_region_ptrs: Vec<WasmerVal> =
+            copy_region_vals_between_env(caller_env, &callee_instance.env, args, false)
+                .unwrap()
+                .into();
+        let mut arg_region_ptrs = vec![env_arg_region_ptr];
+        arg_region_ptrs.append(&mut copied_region_ptrs);
+
         let call_ret = match callee_instance.call_function_strict(
             &func_info.signature,
             &func_info.name,
