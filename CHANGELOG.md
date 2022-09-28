@@ -1,6 +1,29 @@
 # Changelog
 
 
+## [[v1.0.0-0.10.0](https://github.com/line/wasmvm/compare/v0.16.3-0.9.0...v1.0.0-0.10.0)] - 2022-06-21
+
+### Features
+
+* merge upstream 1.0.0 ([#64](https://github.com/line/wasmvm/issues/64))
+
+### Fixes
+
+* improve CHANGELOG's template and devtools/update_changlog.sh ([#60](https://github.com/line/wasmvm/pull/60))
+
+## [[0.16.3-0.9.0](https://github.com/line/wasmvm/compare/v0.14.0-0.8.0...0.16.3-0.9.0)] - 2022-03-03
+
+### Changes
+
+
+### Features
+
+* merge upstream 0.16.3 ([#54](https://github.com/line/wasmvm/issues/54))
+
+### Fixes
+
+* fix Cargo.toml path in devtools/set_version.sh (part of [#59](https://github.com/line/wasmvm/issues/59))
+
 ## [[v0.14.0-0.8.0](https://github.com/line/wasmvm/compare/v0.14.0-0.7.0...v0.14.0-0.8.0)] - 2021-10-01
 
 ### Features
