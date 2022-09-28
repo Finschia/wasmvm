@@ -152,7 +152,7 @@ impl BackendApi for GoApi {
         let mut checksum_out = UnmanagedVector::default();
         let mut used_gas = 0_u64;
 
-        let go_result: GoResult = (self.vtable.get_contract_env)(
+        let go_result: GoError = (self.vtable.get_contract_env)(
             self.state,
             U8SliceView::new(Some(contract_addr.as_bytes())),
             &mut contract_env_out as *mut UnmanagedVector,
@@ -178,7 +178,7 @@ impl BackendApi for GoApi {
             )
         };
         unsafe {
-            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+            if let Err(err) = go_result.into_result(error_msg, default) {
                 return (Err(err), gas_info);
             }
         }

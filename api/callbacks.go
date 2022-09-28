@@ -16,6 +16,7 @@ typedef GoError (*next_db_fn)(iterator_t idx, gas_meter_t *gas_meter, uint64_t *
 // and api
 typedef GoError (*humanize_address_fn)(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
 typedef GoError (*canonicalize_address_fn)(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
+typedef GoError (*get_contract_env_fn)(api_t *ptr, U8SliceView contractAddr, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas);
 typedef GoError (*query_external_fn)(querier_t *ptr, uint64_t gas_limit, uint64_t *used_gas, U8SliceView request, UnmanagedVector *result, UnmanagedVector *errOut);
 
 // forward declarations (db)
@@ -28,6 +29,7 @@ GoError cNext_cgo(iterator_t *ptr, gas_meter_t *gas_meter, uint64_t *used_gas, U
 // api
 GoError cHumanAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
 GoError cCanonicalAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
+GoError cGetContractEnv_cgo(api_t *ptr, U8SliceView contractAddr, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas);
 // and querier
 GoError cQueryExternal_cgo(querier_t *ptr, uint64_t gas_limit, uint64_t *used_gas, U8SliceView request, UnmanagedVector *result, UnmanagedVector *errOut);
 
@@ -368,6 +370,7 @@ func cNext(ref C.iterator_t, gasMeter *C.gas_meter_t, usedGas *C.uint64_t, key *
 type (
 	HumanizeAddress     func([]byte) (string, uint64, error)
 	CanonicalizeAddress func(string) ([]byte, uint64, error)
+	GetContractEnv func(string) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, error)
 )
 
 type GoAPI struct {
@@ -447,11 +450,11 @@ func cCanonicalAddress(ptr *C.api_t, src C.U8SliceView, dest *C.UnmanagedVector,
 }
 
 //export cGetContractEnv
-func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, contractEnvOut *C.UnmanagedVector, cachePtrOut **C.cache_t, dbOut *C.Db, querierOut *C.GoQuerier, checksumOut *C.UnmanagedVector, errOut *C.UnmanagedVector, used_gas *cu64) (ret C.GoResult) {
+func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, contractEnvOut *C.UnmanagedVector, cachePtrOut **C.cache_t, dbOut *C.Db, querierOut *C.GoQuerier, checksumOut *C.UnmanagedVector, errOut *C.UnmanagedVector, used_gas *cu64) (ret C.GoError) {
 	defer recoverPanic(&ret)
 
 	if contractEnvOut == nil || cachePtrOut == nil || dbOut == nil || querierOut == nil || checksumOut == nil || errOut == nil {
-		return C.GoResult_BadArgument
+		return C.GoError_BadArgument
 	}
 	if !(*checksumOut).is_none || !(*errOut).is_none {
 		panic("Got a non-none UnmanagedVector we're about to override. This is a bug because someone has to drop the old one.")
@@ -464,16 +467,16 @@ func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, contractEnvOut *C
 	if err != nil {
 		// store the actual error message in the return buffer
 		*errOut = newUnmanagedVector([]byte(err.Error()))
-		return C.GoResult_User
+		return C.GoError_User
 	}
 	envBin, err := json.Marshal(contractEnv)
 	if err != nil {
 		*errOut = newUnmanagedVector([]byte(err.Error()))
-		return C.GoResult_Other
+		return C.GoError_Other
 	}
 
-	counter := startContract()
-	defer endContract(counter)
+	counter := startCall()
+	defer endCall(counter)
 
 	dbState := buildDBState(store, counter)
 	db := buildDB(&dbState, &gasMeter)
@@ -485,7 +488,7 @@ func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, contractEnvOut *C
 	*dbOut = db
 	*querierOut = q
 
-	return C.GoResult_Ok
+	return C.GoError_None
 }
 
 /****** Go Querier ********/
