@@ -5,6 +5,7 @@ use cosmwasm_vm::{
 };
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
+use wasmer::Module;
 
 use crate::cache::{cache_t, to_cache};
 use crate::db::Db;
@@ -240,6 +241,62 @@ impl BackendApi for GoApi {
         gas_info.cost += callee_instance.create_gas_report().used_internally;
 
         (call_ret, gas_info)
+    }
+
+    fn get_wasmer_module(&self, contract_addr: &str) -> BackendResult<Module> {
+        let mut error_msg = UnmanagedVector::default();
+        let mut contract_env_out = UnmanagedVector::default();
+        let mut cache_ptr_out = MaybeUninit::uninit();
+        let mut db_out = MaybeUninit::uninit();
+        let mut querier_out = MaybeUninit::uninit();
+        let mut checksum_out = UnmanagedVector::default();
+        let mut used_gas = 0_u64;
+
+        let go_result: GoResult = (self.vtable.get_contract_env)(
+            self.state,
+            U8SliceView::new(Some(contract_addr.as_bytes())),
+            &mut contract_env_out as *mut UnmanagedVector,
+            cache_ptr_out.as_mut_ptr(),
+            db_out.as_mut_ptr(),
+            querier_out.as_mut_ptr(),
+            &mut checksum_out as *mut UnmanagedVector,
+            &mut error_msg as *mut UnmanagedVector,
+            &mut used_gas as *mut u64,
+        )
+        .into();
+        let gas_info = GasInfo::with_cost(used_gas);
+
+        // return complete error message (reading from buffer for GoResult::Other)
+        let default = || {
+            format!(
+                "Failed contract call to : {}",
+                hex::encode_upper(contract_addr)
+            )
+        };
+        unsafe {
+            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+                return (Err(err), gas_info);
+            }
+        }
+
+        let cache_ptr = unsafe { cache_ptr_out.assume_init() };
+
+        let cache = match to_cache(cache_ptr) {
+            Some(c) => c,
+            None => return (Err(BackendError::unknown("failed to_cache")), gas_info),
+        };
+
+        let checksum: Checksum = match checksum_out.consume() {
+            Some(c) => c.as_slice().try_into().unwrap(),
+            None => return (Err(BackendError::unknown("invalid checksum")), gas_info),
+        };
+
+        let module = match cache.get_module(&checksum) {
+            Ok(module) => module,
+            Err(_) => return (Err(BackendError::unknown("cannot get module")), gas_info),
+        };
+
+        (Ok(module), gas_info)
     }
 }
 
