@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/line/tm-db/v2/memdb"
 	"github.com/line/wasmvm/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
 type queueData struct {
@@ -67,7 +67,7 @@ func TestStoreIterator(t *testing.T) {
 	callID1 := startCall()
 	callID2 := startCall()
 
-	store := memdb.NewDB()
+	store := dbm.NewMemDB()
 	var iter Iterator
 	var index uint64
 	var err error
@@ -101,7 +101,7 @@ func TestStoreIterator(t *testing.T) {
 func TestStoreIteratorHitsLimit(t *testing.T) {
 	callID := startCall()
 
-	store := memdb.NewDB()
+	store := dbm.NewMemDB()
 	var iter Iterator
 	var err error
 	const limit = 2
@@ -126,7 +126,7 @@ func TestRetrieveIterator(t *testing.T) {
 	callID1 := startCall()
 	callID2 := startCall()
 
-	store := memdb.NewDB()
+	store := dbm.NewMemDB()
 	var iter Iterator
 	var err error
 
