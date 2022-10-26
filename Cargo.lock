@@ -172,7 +172,7 @@ checksum = "9f6b64db6932c7e49332728e3a6bd82c6b7e16016607d20923b537c3bc4c0d5f"
 [[package]]
 name = "cosmwasm-crypto"
 version = "0.14.0-0.4.0"
-source = "git+https://github.com/line/cosmwasm?rev=dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f#dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f"
+source = "git+https://github.com/line/cosmwasm?rev=a611c5548639d5fcd4b2c2367908b09aee97a78d#a611c5548639d5fcd4b2c2367908b09aee97a78d"
 dependencies = [
  "digest",
  "ed25519-zebra",
@@ -185,7 +185,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-derive"
 version = "0.14.0-0.4.0"
-source = "git+https://github.com/line/cosmwasm?rev=dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f#dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f"
+source = "git+https://github.com/line/cosmwasm?rev=a611c5548639d5fcd4b2c2367908b09aee97a78d#a611c5548639d5fcd4b2c2367908b09aee97a78d"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -196,7 +196,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-std"
 version = "0.14.0-0.4.0"
-source = "git+https://github.com/line/cosmwasm?rev=dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f#dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f"
+source = "git+https://github.com/line/cosmwasm?rev=a611c5548639d5fcd4b2c2367908b09aee97a78d#a611c5548639d5fcd4b2c2367908b09aee97a78d"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -212,7 +212,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-vm"
 version = "0.14.0-0.4.0"
-source = "git+https://github.com/line/cosmwasm?rev=dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f#dea61a1ddf9f1fd53fb77f69d8e3bb50db05303f"
+source = "git+https://github.com/line/cosmwasm?rev=a611c5548639d5fcd4b2c2367908b09aee97a78d#a611c5548639d5fcd4b2c2367908b09aee97a78d"
 dependencies = [
  "clru",
  "cosmwasm-crypto",
@@ -1161,6 +1161,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1_smol"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae1a47186c03a32177042e55dbc5fd5aee900b8e0069a8d70fba96a9375cd012"
+
+[[package]]
 name = "sha2"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1340,12 +1346,12 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
 name = "uuid"
-version = "1.0.0-alpha.1"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb3ab47baa004111b323696c6eaa2752e7356f7f77cf6b6dc7a2087368ce1ca4"
+checksum = "feb41e78f93363bb2df8b0e86a2ca30eed7806ea16ea0c790d757cf93f79be83"
 dependencies = [
  "serde",
- "sha-1",
+ "sha1_smol",
 ]
 
 [[package]]
