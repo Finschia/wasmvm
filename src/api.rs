@@ -142,9 +142,10 @@ impl BackendApi for GoApi {
         S: Storage + 'static,
         Q: Querier + 'static,
     {
+        let cache_t_null_ptr: *mut cache_t = std::ptr::null_mut();
         let mut error_msg = UnmanagedVector::default();
         let mut contract_env_out = UnmanagedVector::default();
-        let mut cache_ptr_out = MaybeUninit::uninit();
+        let mut cache_ptr_out = MaybeUninit::new(cache_t_null_ptr);
         let mut db_out = MaybeUninit::uninit();
         let mut querier_out = MaybeUninit::uninit();
         let mut checksum_out = UnmanagedVector::default();
