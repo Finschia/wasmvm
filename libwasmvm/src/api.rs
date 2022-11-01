@@ -5,6 +5,7 @@ use cosmwasm_vm::{
 };
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
+use wasmer::Module;
 
 use crate::cache::{cache_t, to_cache};
 use crate::db::Db;
@@ -144,9 +145,10 @@ impl BackendApi for GoApi {
         S: Storage + 'static,
         Q: Querier + 'static,
     {
+        let cache_t_null_ptr: *mut cache_t = std::ptr::null_mut();
         let mut error_msg = UnmanagedVector::default();
         let mut contract_env_out = UnmanagedVector::default();
-        let mut cache_ptr_out = MaybeUninit::uninit();
+        let mut cache_ptr_out = MaybeUninit::new(cache_t_null_ptr);
         let mut db_out = MaybeUninit::uninit();
         let mut querier_out = MaybeUninit::uninit();
         let mut checksum_out = UnmanagedVector::default();
@@ -244,6 +246,63 @@ impl BackendApi for GoApi {
 
         (call_ret, gas_info)
     }
+
+    fn get_wasmer_module(&self, contract_addr: &str) -> BackendResult<Module> {
+        let cache_t_null_ptr: *mut cache_t = std::ptr::null_mut();
+        let mut error_msg = UnmanagedVector::default();
+        let mut contract_env_out = UnmanagedVector::default();
+        let mut cache_ptr_out = MaybeUninit::new(cache_t_null_ptr);
+        let mut db_out = MaybeUninit::uninit();
+        let mut querier_out = MaybeUninit::uninit();
+        let mut checksum_out = UnmanagedVector::default();
+        let mut used_gas = 0_u64;
+
+        let go_result: GoResult = (self.vtable.get_contract_env)(
+            self.state,
+            U8SliceView::new(Some(contract_addr.as_bytes())),
+            &mut contract_env_out as *mut UnmanagedVector,
+            cache_ptr_out.as_mut_ptr(),
+            db_out.as_mut_ptr(),
+            querier_out.as_mut_ptr(),
+            &mut checksum_out as *mut UnmanagedVector,
+            &mut error_msg as *mut UnmanagedVector,
+            &mut used_gas as *mut u64,
+        )
+        .into();
+        let gas_info = GasInfo::with_cost(used_gas);
+
+        // return complete error message (reading from buffer for GoResult::Other)
+        let default = || {
+            format!(
+                "Failed contract call to : {}",
+                hex::encode_upper(contract_addr)
+            )
+        };
+        unsafe {
+            if let Err(err) = go_result.into_ffi_result(error_msg, default) {
+                return (Err(err), gas_info);
+            }
+        }
+
+        let cache_ptr = unsafe { cache_ptr_out.assume_init() };
+
+        let checksum: Checksum = match checksum_out.consume() {
+            Some(c) => c.as_slice().try_into().unwrap(),
+            None => return (Err(BackendError::unknown("invalid checksum")), gas_info),
+        };
+
+        let cache = match to_cache(cache_ptr) {
+            Some(c) => c,
+            None => return (Err(BackendError::unknown("failed to_cache")), gas_info),
+        };
+
+        let module = match cache.get_module(&checksum) {
+            Ok(module) => module,
+            Err(_) => return (Err(BackendError::unknown("cannot get module")), gas_info),
+        };
+
+        (Ok(module), gas_info)
+    }
 }
 
 fn into_backend(db: Db, api: GoApi, querier: GoQuerier) -> Backend<GoApi, GoStorage, GoQuerier> {
@@ -251,5 +310,268 @@ fn into_backend(db: Db, api: GoApi, querier: GoQuerier) -> Backend<GoApi, GoStor
         api,
         storage: GoStorage::new(db),
         querier,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const C_API_T: api_t = api_t { _private: [] };
+
+    #[no_mangle]
+    extern "C" fn mock_address(
+        _api: *const api_t,
+        _sv: U8SliceView,
+        output: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        let dummy_human = String::from("dummy_address");
+        unsafe { *output = UnmanagedVector::new(Some(dummy_human.into_bytes())) };
+
+        // ok
+        0
+    }
+
+    #[no_mangle]
+    extern "C" fn mock_address_panic(
+        _api: *const api_t,
+        _sv: U8SliceView,
+        _output: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        // panic
+        1
+    }
+
+    #[no_mangle]
+    extern "C" fn mock_address_with_none_output(
+        _api: *const api_t,
+        _sv: U8SliceView,
+        _output: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        // ok
+        0
+    }
+
+    #[no_mangle]
+    extern "C" fn mock_get_contract_env_with_none_outputs(
+        _api: *const api_t,
+        _sv: U8SliceView,
+        _env: *mut UnmanagedVector,
+        _cache: *mut *mut cache_t,
+        _db: *mut Db,
+        _go_querier: *mut GoQuerier,
+        _checksum: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        // ok
+        0
+    }
+
+    #[no_mangle]
+    extern "C" fn mock_get_contract_env_with_checksum(
+        _api: *const api_t,
+        _sv: U8SliceView,
+        _env: *mut UnmanagedVector,
+        _cache: *mut *mut cache_t,
+        _db: *mut Db,
+        _go_querier: *mut GoQuerier,
+        checksum: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        let dummy_wasm = b"dummy_wasm";
+        let dummy_checksum = Checksum::generate(dummy_wasm);
+        unsafe { *checksum = UnmanagedVector::new(Some(dummy_checksum.into())) };
+
+        // ok
+        0
+    }
+
+    #[no_mangle]
+    extern "C" fn mock_get_contract_env_panic(
+        _api: *const api_t,
+        _sv: U8SliceView,
+        _env: *mut UnmanagedVector,
+        _cache: *mut *mut cache_t,
+        _db: *mut Db,
+        _go_querier: *mut GoQuerier,
+        _checksum: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        // panic
+        1
+    }
+
+    #[test]
+    fn test_canonical_address() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address,
+            canonicalize_address: mock_address,
+            get_contract_env: mock_get_contract_env_with_none_outputs,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (canonical_address, _) = mock_go_api.canonical_address("human");
+        assert_eq!(canonical_address.unwrap(), b"dummy_address")
+    }
+
+    #[test]
+    #[should_panic(expected = "ForeignPanic")]
+    fn test_canonical_address_panic() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address,
+            canonicalize_address: mock_address_panic,
+            get_contract_env: mock_get_contract_env_with_none_outputs,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (canonical_address, _) = mock_go_api.canonical_address("human");
+        // should panic
+        canonical_address.unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Unset output")]
+    fn test_canonical_address_with_none_output() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address,
+            canonicalize_address: mock_address_with_none_output,
+            get_contract_env: mock_get_contract_env_with_none_outputs,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (canonical_address, _) = mock_go_api.canonical_address("human");
+        // should panic
+        canonical_address.unwrap();
+    }
+
+    #[test]
+    fn test_human_address() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address,
+            canonicalize_address: mock_address,
+            get_contract_env: mock_get_contract_env_with_none_outputs,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (canonical_address, _) = mock_go_api.human_address(b"canonical");
+        assert_eq!(canonical_address.unwrap(), "dummy_address")
+    }
+
+    #[test]
+    #[should_panic(expected = "ForeignPanic")]
+    fn test_human_address_err_with_panic() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address_panic,
+            canonicalize_address: mock_address,
+            get_contract_env: mock_get_contract_env_with_none_outputs,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (canonical_address, _) = mock_go_api.human_address(b"canonical");
+        canonical_address.unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Unset output")]
+    fn test_human_address_err_with_none_output() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address_with_none_output,
+            canonicalize_address: mock_address,
+            get_contract_env: mock_get_contract_env_with_none_outputs,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (canonical_address, _) = mock_go_api.human_address(b"canonical");
+        canonical_address.unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "ForeignPanic")]
+    fn test_get_wasmer_module_err_with_panic() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address,
+            canonicalize_address: mock_address,
+            get_contract_env: mock_get_contract_env_panic,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (module, _) = mock_go_api.get_wasmer_module("address");
+
+        module.unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "failed to_cache")]
+    fn test_get_wasmer_module_err_with_nones() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address,
+            canonicalize_address: mock_address,
+            get_contract_env: mock_get_contract_env_with_checksum,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (module, _) = mock_go_api.get_wasmer_module("address");
+
+        module.unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid checksum")]
+    fn test_get_wasmer_module_err_with_cache_and_nones() {
+        let mock_go_api_vtable = GoApi_vtable {
+            humanize_address: mock_address,
+            canonicalize_address: mock_address,
+            get_contract_env: mock_get_contract_env_with_none_outputs,
+        };
+
+        let mock_go_api = GoApi {
+            state: &C_API_T as *const _,
+            vtable: mock_go_api_vtable,
+        };
+
+        let (module, _) = mock_go_api.get_wasmer_module("address");
+
+        module.unwrap();
     }
 }
