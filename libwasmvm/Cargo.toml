@@ -30,13 +30,13 @@ default = []
 backtraces = []
 
 [dependencies]
-cosmwasm-std = { git = "https://github.com/line/cosmwasm", rev = "a611c5548639d5fcd4b2c2367908b09aee97a78d", features = ["iterator","staking","stargate"] }
-cosmwasm-vm = { git = "https://github.com/line/cosmwasm", rev = "a611c5548639d5fcd4b2c2367908b09aee97a78d", features = ["iterator","staking","stargate"] }
+cosmwasm-std = { git = "https://github.com/line/cosmwasm", rev = "497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e", features = ["iterator","staking","stargate"] }
+cosmwasm-vm = { git = "https://github.com/line/cosmwasm", rev = "497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e", features = ["iterator","staking","stargate"] }
 errno = "0.2"
 serde_json = "1.0"
 thiserror = "1.0"
 hex = "0.4"
-wasmer = "1.0.2"
+wasmer = "2.2.1"
 
 [dev-dependencies]
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
