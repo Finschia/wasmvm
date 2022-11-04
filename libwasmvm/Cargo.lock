@@ -202,7 +202,7 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 [[package]]
 name = "cosmwasm-crypto"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm?rev=497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e#497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e"
+source = "git+https://github.com/line/cosmwasm?rev=2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e#2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e"
 dependencies = [
  "digest",
  "ed25519-zebra",
@@ -215,7 +215,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-derive"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm?rev=497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e#497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e"
+source = "git+https://github.com/line/cosmwasm?rev=2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e#2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e"
 dependencies = [
  "convert_case",
  "proc-macro-error",
@@ -227,7 +227,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-std"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm?rev=497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e#497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e"
+source = "git+https://github.com/line/cosmwasm?rev=2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e#2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -245,7 +245,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-vm"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm?rev=497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e#497f09d48b3fd7bb01ad4cfd0b34cc2edc08e38e"
+source = "git+https://github.com/line/cosmwasm?rev=2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e#2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e"
 dependencies = [
  "clru",
  "cosmwasm-crypto",
