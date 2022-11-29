@@ -9,7 +9,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.51.0
+          toolchain: 1.57.0
           target: wasm32-unknown-unknown
           profile: minimal
           override: true
@@ -19,7 +19,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cargo
-          key: cargocache-v2-libwasmvm_sanity-rust:1.51.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-libwasmvm_sanity-rust:1.57.0-${{ hashFiles('Cargo.lock') }}
       - name: Install shellcheck
         run: sudo apt install shellcheck
       - name: Show version information
@@ -27,14 +27,19 @@ jobs:
       - name: Add Rust components
         run: rustup component add clippy rustfmt
       - name: Check formatting
+        working-directory: ./libwasmvm
         run: cargo fmt -- --check
       - name: Run linter
+        working-directory: ./libwasmvm
         run: cargo clippy -- -D warnings
       - name: Run unit tests
+        working-directory: ./libwasmvm
         run: cargo test
       - name: Build docs
+        working-directory: ./libwasmvm
         run: cargo doc --no-deps
       - name: Test docs
+        working-directory: ./libwasmvm
         run: |
             sed -i  '/^crate-type = \["cdylib"\]/d' Cargo.toml
             cargo test --doc
@@ -47,7 +52,7 @@ jobs:
       - name: set up
         uses: actions/setup-go@v2
         with:
-          go-version: 1.17.7
+          go-version: ^1.17.4
         id: go
       - name: Checkout
         uses: actions/checkout@v2
@@ -55,16 +60,38 @@ jobs:
         run: |
             [ "$(gofmt -l .)" = "" ] || (gofmt -d . && exit 1)
 
+  tidy-go:
+    runs-on: ubuntu-latest
+    steps:
+      - name: set up
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.17.4
+        id: go
+      - name: CHeckout
+        uses: actions/checkout@v2
+      - name: Check go mod tidy
+        # Use --check or --exit-code when available (Go 1.19?)
+        # https://github.com/golang/go/issues/27005
+        run: |
+            go mod tidy
+            CHANGES_IN_REPO=$(git status --porcelain)
+            if [[ -n "$CHANGES_IN_REPO" ]]; then
+              echo "Repository is dirty. Showing 'git status' and 'git --no-pager diff' for debugging now:"
+              git status && git --no-pager diff
+              exit 1
+            fi
+
   format-scripts:
     runs-on: ubuntu-latest
     steps:
       - name: set up
         uses: actions/setup-go@v2
         with:
-          go-version: 1.17.7
+          go-version: ^1.17.4
         id: go
       - name: Install shfmt
-        run: GO111MODULE=on go get mvdan.cc/sh/v3/cmd/shfmt
+        run: GO111MODULE=on go install mvdan.cc/sh/v3/cmd/shfmt@v3.4.0
       - name: Run shfmt
         run: shfmt -d .
 
@@ -86,7 +113,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.51.0
+          toolchain: 1.57.0
           target: wasm32-unknown-unknown
           profile: minimal
           override: true
@@ -96,7 +123,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.cargo
-          key: cargocache-v2-build_shared_library-rust:1.51.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-build_shared_library-rust:1.57.0-${{ hashFiles('Cargo.lock') }}
       - name: Show version information
         run: rustc --version; cargo --version; rustup --version
       - name: Create release build of libwasmvm
@@ -105,7 +132,22 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: libwasmvm
-          path: ./api/libwasmvm.so
+          path: ./api/libwasmvm.x86_64.so
+
+  build_static_lib:
+    runs-on: ubuntu-latest
+    steps:
+      - name: set up
+        uses: actions/setup-go@v3.2.1
+        with:
+          go-version: 1.18
+        id: go
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build docker image
+        run: cd builders && make docker-image-alpine
+      - name: Build & Test static library
+        run: make release-build-alpine
 
   test:
     needs: build_shared_library
@@ -117,7 +159,7 @@ jobs:
       - name: set up
         uses: actions/setup-go@v2
         with:
-          go-version: 1.17.7
+          go-version: ^1.17.4
         id: go
       - name: Checkout
         uses: actions/checkout@v2
@@ -127,7 +169,7 @@ jobs:
           name: libwasmvm
           path: /tmp/builds
       - name: Copy libwasmvm
-        run: cp /tmp/builds/libwasmvm.so ./api
+        run: cp /tmp/builds/libwasmvm.x86_64.so ./api
       - name: Go integration tests
         run: make test
       - name: Go tests with cgo and race condition safety checks

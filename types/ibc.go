@@ -10,14 +10,147 @@ type IBCChannel struct {
 	CounterpartyEndpoint IBCEndpoint `json:"counterparty_endpoint"`
 	Order                IBCOrder    `json:"order"`
 	Version              string      `json:"version"`
-	// optional
-	CounterpartyVersion string `json:"counterparty_version,omitempty"`
-	ConnectionID        string `json:"connection_id"`
+	ConnectionID         string      `json:"connection_id"`
+}
+
+type IBCChannelOpenMsg struct {
+	OpenInit *IBCOpenInit `json:"open_init,omitempty"`
+	OpenTry  *IBCOpenTry  `json:"open_try,omitempty"`
+}
+
+// GetChannel returns the IBCChannel in this message.
+func (msg IBCChannelOpenMsg) GetChannel() IBCChannel {
+	if msg.OpenInit != nil {
+		return msg.OpenInit.Channel
+	}
+	return msg.OpenTry.Channel
+}
+
+// GetCounterVersion checks if the message has a counterparty version and
+// returns it if so.
+func (msg IBCChannelOpenMsg) GetCounterVersion() (ver string, ok bool) {
+	if msg.OpenTry != nil {
+		return msg.OpenTry.CounterpartyVersion, true
+	}
+	return "", false
+}
+
+type IBCOpenInit struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+func (m *IBCOpenInit) ToMsg() IBCChannelOpenMsg {
+	return IBCChannelOpenMsg{
+		OpenInit: m,
+	}
+}
+
+type IBCOpenTry struct {
+	Channel             IBCChannel `json:"channel"`
+	CounterpartyVersion string     `json:"counterparty_version"`
+}
+
+func (m *IBCOpenTry) ToMsg() IBCChannelOpenMsg {
+	return IBCChannelOpenMsg{
+		OpenTry: m,
+	}
+}
+
+type IBCChannelConnectMsg struct {
+	OpenAck     *IBCOpenAck     `json:"open_ack,omitempty"`
+	OpenConfirm *IBCOpenConfirm `json:"open_confirm,omitempty"`
+}
+
+// GetChannel returns the IBCChannel in this message.
+func (msg IBCChannelConnectMsg) GetChannel() IBCChannel {
+	if msg.OpenAck != nil {
+		return msg.OpenAck.Channel
+	}
+	return msg.OpenConfirm.Channel
+}
+
+// GetCounterVersion checks if the message has a counterparty version and
+// returns it if so.
+func (msg IBCChannelConnectMsg) GetCounterVersion() (ver string, ok bool) {
+	if msg.OpenAck != nil {
+		return msg.OpenAck.CounterpartyVersion, true
+	}
+	return "", false
+}
+
+type IBCOpenAck struct {
+	Channel             IBCChannel `json:"channel"`
+	CounterpartyVersion string     `json:"counterparty_version"`
+}
+
+func (m *IBCOpenAck) ToMsg() IBCChannelConnectMsg {
+	return IBCChannelConnectMsg{
+		OpenAck: m,
+	}
+}
+
+type IBCOpenConfirm struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+func (m *IBCOpenConfirm) ToMsg() IBCChannelConnectMsg {
+	return IBCChannelConnectMsg{
+		OpenConfirm: m,
+	}
+}
+
+type IBCChannelCloseMsg struct {
+	CloseInit    *IBCCloseInit    `json:"close_init,omitempty"`
+	CloseConfirm *IBCCloseConfirm `json:"close_confirm,omitempty"`
+}
+
+// GetChannel returns the IBCChannel in this message.
+func (msg IBCChannelCloseMsg) GetChannel() IBCChannel {
+	if msg.CloseInit != nil {
+		return msg.CloseInit.Channel
+	}
+	return msg.CloseConfirm.Channel
+}
+
+type IBCCloseInit struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+func (m *IBCCloseInit) ToMsg() IBCChannelCloseMsg {
+	return IBCChannelCloseMsg{
+		CloseInit: m,
+	}
+}
+
+type IBCCloseConfirm struct {
+	Channel IBCChannel `json:"channel"`
+}
+
+func (m *IBCCloseConfirm) ToMsg() IBCChannelCloseMsg {
+	return IBCChannelCloseMsg{
+		CloseConfirm: m,
+	}
+}
+
+type IBCPacketReceiveMsg struct {
+	Packet  IBCPacket `json:"packet"`
+	Relayer string    `json:"relayer"`
+}
+
+type IBCPacketAckMsg struct {
+	Acknowledgement IBCAcknowledgement `json:"acknowledgement"`
+	OriginalPacket  IBCPacket          `json:"original_packet"`
+	Relayer         string             `json:"relayer"`
+}
+
+type IBCPacketTimeoutMsg struct {
+	Packet  IBCPacket `json:"packet"`
+	Relayer string    `json:"relayer"`
 }
 
 // TODO: test what the sdk Order.String() represents and how to parse back
-// `Order` in Proto files: https://github.com/line/lfb-sdk/blob/main/proto/ibc/core/channel/v1/channel.proto
-// `ORder` in Auto-gen code: https://github.com/line/lfb-sdk/blob/main/x/ibc/core/04-channel/types/channel.pb.go
+// `Order` in Proto files: https://github.com/line/lbm-sdk/blob/main/proto/ibc/core/channel/v1/channel.proto
+// `ORder` in Auto-gen code: https://github.com/line/lbm-sdk/blob/main/x/ibc/core/04-channel/types/channel.pb.go
 type IBCOrder = string
 
 // These are the only two valid values for IbcOrder
@@ -48,6 +181,10 @@ type IBCTimeout struct {
 	Timestamp uint64 `json:"timestamp,string,omitempty"`
 }
 
+type IBCAcknowledgement struct {
+	Data []byte `json:"data"`
+}
+
 type IBCPacket struct {
 	Data     []byte      `json:"data"`
 	Src      IBCEndpoint `json:"src"`
@@ -56,17 +193,19 @@ type IBCPacket struct {
 	Timeout  IBCTimeout  `json:"timeout"`
 }
 
-type IBCAcknowledgement struct {
-	Acknowledgement []byte    `json:"acknowledgement"`
-	OriginalPacket  IBCPacket `json:"original_packet"`
-}
-
 // IBCChannelOpenResult is the raw response from the ibc_channel_open call.
 // This is mirrors Rust's ContractResult<()>.
-// We just check if Err == "" to see if this is success (no other data on success)
+// Check if Err == "" to see if this is success
+// On Success, IBCV3ChannelOpenResponse *may* be set if the contract is ibcv3 compatible and wishes to
+// define a custom version in the handshake.
 type IBCChannelOpenResult struct {
-	Ok  *struct{} `json:"ok,omitempty"`
-	Err string    `json:"error,omitempty"`
+	Ok  *IBC3ChannelOpenResponse `json:"ok,omitempty"`
+	Err string                   `json:"error,omitempty"`
+}
+
+// IBC3ChannelOpenResponse is version negotiation data for the handshake
+type IBC3ChannelOpenResponse struct {
+	Version string `json:"version"`
 }
 
 // This is the return value for the majority of the ibc handlers.
@@ -84,13 +223,16 @@ type IBCBasicResult struct {
 // IBCBasicResponse defines the return value on a successful processing.
 // This is the counterpart of `IbcBasicResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCBasicResponse struct {
-	// Submessages are like Messages, but they guarantee a reply to the calling contract
-	// after their execution, and return both success and error rather than auto-failing on error
-	Submessages []SubMsg `json:"submessages"`
-	// Messages comes directly from the contract and is it's request for action
-	Messages []CosmosMsg `json:"messages"`
+	// Messages comes directly from the contract and is its request for action.
+	// If the ReplyOn value matches the result, the runtime will invoke this
+	// contract's `reply` entry point after execution. Otherwise, this is all
+	// "fire and forget".
+	Messages []SubMsg `json:"messages"`
 	// attributes for a log event to return over abci interface
 	Attributes []EventAttribute `json:"attributes"`
+	// custom events (separate from the main one that contains the attributes
+	// above)
+	Events []Event `json:"events"`
 }
 
 // This is the return value for the majority of the ibc handlers.
@@ -114,11 +256,13 @@ type IBCReceiveResult struct {
 type IBCReceiveResponse struct {
 	// binary encoded data to be returned to calling chain as the acknowledgement
 	Acknowledgement []byte `json:"acknowledgement"`
-	// Submessages are like Messages, but they guarantee a reply to the calling contract
-	// after their execution, and return both success and error rather than auto-failing on error
-	Submessages []SubMsg `json:"submessages"`
-	// Messages comes directly from the contract and is it's request for action
-	Messages []CosmosMsg `json:"messages"`
-	// attributes for a log event to return over abci interface
+	// Messages comes directly from the contract and is it's request for action.
+	// If the ReplyOn value matches the result, the runtime will invoke this
+	// contract's `reply` entry point after execution. Otherwise, this is all
+	// "fire and forget".
+	Messages   []SubMsg         `json:"messages"`
 	Attributes []EventAttribute `json:"attributes"`
+	// custom events (separate from the main one that contains the attributes
+	// above)
+	Events []Event `json:"events"`
 }

@@ -13,15 +13,17 @@ import (
 )
 
 // Value types
-type cint = C.int
-type cbool = C.bool
-type cusize = C.size_t
-type cu8 = C.uint8_t
-type cu32 = C.uint32_t
-type cu64 = C.uint64_t
-type ci8 = C.int8_t
-type ci32 = C.int32_t
-type ci64 = C.int64_t
+type (
+	cint   = C.int
+	cbool  = C.bool
+	cusize = C.size_t
+	cu8    = C.uint8_t
+	cu32   = C.uint32_t
+	cu64   = C.uint64_t
+	ci8    = C.int8_t
+	ci32   = C.int32_t
+	ci64   = C.int64_t
+)
 
 // Pointers
 type cu8_ptr = *C.uint8_t
@@ -110,6 +112,7 @@ func AnalyzeCode(cache Cache, checksum []byte) (*types.AnalysisReport, error) {
 	}
 	res := types.AnalysisReport{
 		HasIBCEntryPoints: bool(report.has_ibc_entry_points),
+		RequiredFeatures:  string(copyAndDestroyUnmanagedVector(report.required_features)),
 	}
 	return &res, nil
 }
@@ -155,11 +158,10 @@ func Instantiate(
 	m := makeView(msg)
 	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -196,11 +198,10 @@ func Execute(
 	m := makeView(msg)
 	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -234,11 +235,10 @@ func Migrate(
 	m := makeView(msg)
 	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -272,11 +272,10 @@ func Sudo(
 	m := makeView(msg)
 	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -310,11 +309,10 @@ func Reply(
 	r := makeView(reply)
 	defer runtime.KeepAlive(reply)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -348,11 +346,10 @@ func Query(
 	m := makeView(msg)
 	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -371,7 +368,7 @@ func IBCChannelOpen(
 	cache Cache,
 	checksum []byte,
 	env []byte,
-	channel []byte,
+	msg []byte,
 	gasMeter *GasMeter,
 	store KVStore,
 	api *GoAPI,
@@ -383,21 +380,20 @@ func IBCChannelOpen(
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
 	defer runtime.KeepAlive(env)
-	ch := makeView(channel)
-	defer runtime.KeepAlive(channel)
+	m := makeView(msg)
+	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
 	var gasUsed cu64
 	errmsg := newUnmanagedVector(nil)
 
-	res, err := C.ibc_channel_open(cache.ptr, cs, e, ch, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_channel_open(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
 		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
@@ -409,7 +405,7 @@ func IBCChannelConnect(
 	cache Cache,
 	checksum []byte,
 	env []byte,
-	channel []byte,
+	msg []byte,
 	gasMeter *GasMeter,
 	store KVStore,
 	api *GoAPI,
@@ -421,21 +417,20 @@ func IBCChannelConnect(
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
 	defer runtime.KeepAlive(env)
-	ch := makeView(channel)
-	defer runtime.KeepAlive(channel)
+	m := makeView(msg)
+	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
 	var gasUsed cu64
 	errmsg := newUnmanagedVector(nil)
 
-	res, err := C.ibc_channel_connect(cache.ptr, cs, e, ch, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_channel_connect(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
 		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
@@ -447,7 +442,7 @@ func IBCChannelClose(
 	cache Cache,
 	checksum []byte,
 	env []byte,
-	channel []byte,
+	msg []byte,
 	gasMeter *GasMeter,
 	store KVStore,
 	api *GoAPI,
@@ -459,21 +454,20 @@ func IBCChannelClose(
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
 	defer runtime.KeepAlive(env)
-	ch := makeView(channel)
-	defer runtime.KeepAlive(channel)
+	m := makeView(msg)
+	defer runtime.KeepAlive(msg)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
 	var gasUsed cu64
 	errmsg := newUnmanagedVector(nil)
 
-	res, err := C.ibc_channel_close(cache.ptr, cs, e, ch, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_channel_close(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
 		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
@@ -500,11 +494,10 @@ func IBCPacketReceive(
 	pa := makeView(packet)
 	defer runtime.KeepAlive(packet)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -538,11 +531,10 @@ func IBCPacketAck(
 	ac := makeView(ack)
 	defer runtime.KeepAlive(ack)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
@@ -576,11 +568,10 @@ func IBCPacketTimeout(
 	pa := makeView(packet)
 	defer runtime.KeepAlive(packet)
 
-	// set up a new stack frame to handle iterators
-	counter := startContract()
-	defer endContract(counter)
+	callID := startCall()
+	defer endCall(callID)
 
-	dbState := buildDBState(store, counter)
+	dbState := buildDBState(store, callID)
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)

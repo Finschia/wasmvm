@@ -1,6 +1,3 @@
-//go:build mocks
-// +build mocks
-
 package cosmwasm
 
 import (
@@ -14,11 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const TESTING_FEATURES = "staking,stargate"
-const TESTING_PRINT_DEBUG = false
-const TESTING_GAS_LIMIT = 100_000_000
-const TESTING_MEMORY_LIMIT = 32 // MiB
-const TESTING_CACHE_SIZE = 100  // MiB
+const (
+	TESTING_FEATURES     = "staking,stargate,iterator"
+	TESTING_PRINT_DEBUG  = false
+	TESTING_GAS_LIMIT    = uint64(500_000_000_000) // ~0.5ms
+	TESTING_MEMORY_LIMIT = 32                      // MiB
+	TESTING_CACHE_SIZE   = 100                     // MiB
+)
 
 const HACKATOM_TEST_CONTRACT = "./api/testdata/hackatom.wasm"
 
@@ -61,6 +60,7 @@ func TestHappyPath(t *testing.T) {
 	vm := withVM(t)
 	checksum := createTestContract(t, vm, HACKATOM_TEST_CONTRACT)
 
+	deserCost := types.UFraction{1, 1}
 	gasMeter1 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
 	// instantiate it with this store
 	store := api.NewLookup(gasMeter1)
@@ -72,7 +72,7 @@ func TestHappyPath(t *testing.T) {
 	env := api.MockEnv()
 	info := api.MockInfo("creator", nil)
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	ires, _, err := vm.Instantiate(checksum, env, info, msg, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
+	ires, _, err := vm.Instantiate(checksum, env, info, msg, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
@@ -81,12 +81,12 @@ func TestHappyPath(t *testing.T) {
 	store.SetGasMeter(gasMeter2)
 	env = api.MockEnv()
 	info = api.MockInfo("fred", nil)
-	hres, _, err := vm.Execute(checksum, env, info, []byte(`{"release":{}}`), store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT)
+	hres, _, err := vm.Execute(checksum, env, info, []byte(`{"release":{}}`), store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(hres.Messages))
 
 	// make sure it read the balance properly and we got 250 atoms
-	dispatch := hres.Messages[0]
+	dispatch := hres.Messages[0].Msg
 	require.NotNil(t, dispatch.Bank, "%#v", dispatch)
 	require.NotNil(t, dispatch.Bank.Send, "%#v", dispatch)
 	send := dispatch.Bank.Send
@@ -108,6 +108,8 @@ func TestGetMetrics(t *testing.T) {
 	// Create contract
 	checksum := createTestContract(t, vm, HACKATOM_TEST_CONTRACT)
 
+	deserCost := types.UFraction{1, 1}
+
 	// GetMetrics 2
 	metrics, err = vm.GetMetrics()
 	require.NoError(t, err)
@@ -124,34 +126,31 @@ func TestGetMetrics(t *testing.T) {
 	env := api.MockEnv()
 	info := api.MockInfo("creator", nil)
 	msg1 := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	ires, _, err := vm.Instantiate(checksum, env, info, msg1, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
+	ires, _, err := vm.Instantiate(checksum, env, info, msg1, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
 	// GetMetrics 3
 	metrics, err = vm.GetMetrics()
-	require.NoError(t, err)
-	assert.Equal(t, &types.Metrics{
-		HitsFsCache:         1,
-		ElementsMemoryCache: 1,
-		SizeMemoryCache:     3432787,
-	}, metrics)
+	assert.NoError(t, err)
+	require.Equal(t, uint32(0), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
+	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 2
 	msg2 := []byte(`{"verifier": "fred", "beneficiary": "susi"}`)
-	ires, _, err = vm.Instantiate(checksum, env, info, msg2, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
+	ires, _, err = vm.Instantiate(checksum, env, info, msg2, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
 	// GetMetrics 4
 	metrics, err = vm.GetMetrics()
-	require.NoError(t, err)
-	assert.Equal(t, &types.Metrics{
-		HitsMemoryCache:     1,
-		HitsFsCache:         1,
-		ElementsMemoryCache: 1,
-		SizeMemoryCache:     3432787,
-	}, metrics)
+	assert.NoError(t, err)
+	require.Equal(t, uint32(1), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
+	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
 
 	// Pin
 	err = vm.Pin(checksum)
@@ -159,34 +158,30 @@ func TestGetMetrics(t *testing.T) {
 
 	// GetMetrics 5
 	metrics, err = vm.GetMetrics()
-	require.NoError(t, err)
-	assert.Equal(t, &types.Metrics{
-		HitsMemoryCache:           2,
-		HitsFsCache:               1,
-		ElementsPinnedMemoryCache: 1,
-		ElementsMemoryCache:       1,
-		SizePinnedMemoryCache:     3432787,
-		SizeMemoryCache:           3432787,
-	}, metrics)
+	assert.NoError(t, err)
+	require.Equal(t, uint32(2), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
+	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
+	require.InEpsilon(t, 5665691, metrics.SizePinnedMemoryCache, 0.18)
+	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 3
 	msg3 := []byte(`{"verifier": "fred", "beneficiary": "bert"}`)
-	ires, _, err = vm.Instantiate(checksum, env, info, msg3, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
+	ires, _, err = vm.Instantiate(checksum, env, info, msg3, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
 	// GetMetrics 6
 	metrics, err = vm.GetMetrics()
-	require.NoError(t, err)
-	assert.Equal(t, &types.Metrics{
-		HitsPinnedMemoryCache:     1,
-		HitsMemoryCache:           2,
-		HitsFsCache:               1,
-		ElementsPinnedMemoryCache: 1,
-		ElementsMemoryCache:       1,
-		SizePinnedMemoryCache:     3432787,
-		SizeMemoryCache:           3432787,
-	}, metrics)
+	assert.NoError(t, err)
+	require.Equal(t, uint32(1), metrics.HitsPinnedMemoryCache)
+	require.Equal(t, uint32(2), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
+	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
+	require.InEpsilon(t, 5665691, metrics.SizePinnedMemoryCache, 0.18)
+	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
 
 	// Unpin
 	err = vm.Unpin(checksum)
@@ -194,33 +189,29 @@ func TestGetMetrics(t *testing.T) {
 
 	// GetMetrics 7
 	metrics, err = vm.GetMetrics()
-	require.NoError(t, err)
-	assert.Equal(t, &types.Metrics{
-		HitsPinnedMemoryCache:     1,
-		HitsMemoryCache:           2,
-		HitsFsCache:               1,
-		ElementsPinnedMemoryCache: 0,
-		ElementsMemoryCache:       1,
-		SizePinnedMemoryCache:     0,
-		SizeMemoryCache:           3432787,
-	}, metrics)
+	assert.NoError(t, err)
+	require.Equal(t, uint32(1), metrics.HitsPinnedMemoryCache)
+	require.Equal(t, uint32(2), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
+	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
+	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
+	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 4
 	msg4 := []byte(`{"verifier": "fred", "beneficiary": "jeff"}`)
-	ires, _, err = vm.Instantiate(checksum, env, info, msg4, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT)
+	ires, _, err = vm.Instantiate(checksum, env, info, msg4, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(ires.Messages))
 
 	// GetMetrics 8
 	metrics, err = vm.GetMetrics()
-	require.NoError(t, err)
-	assert.Equal(t, &types.Metrics{
-		HitsPinnedMemoryCache:     1,
-		HitsMemoryCache:           3,
-		HitsFsCache:               1,
-		ElementsPinnedMemoryCache: 0,
-		ElementsMemoryCache:       1,
-		SizePinnedMemoryCache:     0,
-		SizeMemoryCache:           3432787,
-	}, metrics)
+	assert.NoError(t, err)
+	require.Equal(t, uint32(1), metrics.HitsPinnedMemoryCache)
+	require.Equal(t, uint32(3), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
+	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
+	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
+	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
 }

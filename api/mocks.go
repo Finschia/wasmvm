@@ -1,6 +1,3 @@
-//go:build mocks
-// +build mocks
-
 package api
 
 import (
@@ -71,10 +68,65 @@ func MockIBCChannel(channelID string, ordering types.IBCOrder, ibcVersion string
 			PortID:    "their_port",
 			ChannelID: "channel-7",
 		},
-		Order:               ordering,
-		Version:             ibcVersion,
-		CounterpartyVersion: ibcVersion,
-		ConnectionID:        "connection-3",
+		Order:        ordering,
+		Version:      ibcVersion,
+		ConnectionID: "connection-3",
+	}
+}
+
+func MockIBCChannelOpenInit(channelID string, ordering types.IBCOrder, ibcVersion string) types.IBCChannelOpenMsg {
+	return types.IBCChannelOpenMsg{
+		OpenInit: &types.IBCOpenInit{
+			Channel: MockIBCChannel(channelID, ordering, ibcVersion),
+		},
+		OpenTry: nil,
+	}
+}
+
+func MockIBCChannelOpenTry(channelID string, ordering types.IBCOrder, ibcVersion string) types.IBCChannelOpenMsg {
+	return types.IBCChannelOpenMsg{
+		OpenInit: nil,
+		OpenTry: &types.IBCOpenTry{
+			Channel:             MockIBCChannel(channelID, ordering, ibcVersion),
+			CounterpartyVersion: ibcVersion,
+		},
+	}
+}
+
+func MockIBCChannelConnectAck(channelID string, ordering types.IBCOrder, ibcVersion string) types.IBCChannelConnectMsg {
+	return types.IBCChannelConnectMsg{
+		OpenAck: &types.IBCOpenAck{
+			Channel:             MockIBCChannel(channelID, ordering, ibcVersion),
+			CounterpartyVersion: ibcVersion,
+		},
+		OpenConfirm: nil,
+	}
+}
+
+func MockIBCChannelConnectConfirm(channelID string, ordering types.IBCOrder, ibcVersion string) types.IBCChannelConnectMsg {
+	return types.IBCChannelConnectMsg{
+		OpenAck: nil,
+		OpenConfirm: &types.IBCOpenConfirm{
+			Channel: MockIBCChannel(channelID, ordering, ibcVersion),
+		},
+	}
+}
+
+func MockIBCChannelCloseInit(channelID string, ordering types.IBCOrder, ibcVersion string) types.IBCChannelCloseMsg {
+	return types.IBCChannelCloseMsg{
+		CloseInit: &types.IBCCloseInit{
+			Channel: MockIBCChannel(channelID, ordering, ibcVersion),
+		},
+		CloseConfirm: nil,
+	}
+}
+
+func MockIBCChannelCloseConfirm(channelID string, ordering types.IBCOrder, ibcVersion string) types.IBCChannelCloseMsg {
+	return types.IBCChannelCloseMsg{
+		CloseInit: nil,
+		CloseConfirm: &types.IBCCloseConfirm{
+			Channel: MockIBCChannel(channelID, ordering, ibcVersion),
+		},
 	}
 }
 
@@ -99,8 +151,31 @@ func MockIBCPacket(myChannel string, data []byte) types.IBCPacket {
 	}
 }
 
+func MockIBCPacketReceive(myChannel string, data []byte) types.IBCPacketReceiveMsg {
+	return types.IBCPacketReceiveMsg{
+		Packet: MockIBCPacket(myChannel, data),
+	}
+}
+
+func MockIBCPacketAck(myChannel string, data []byte, ack types.IBCAcknowledgement) types.IBCPacketAckMsg {
+	packet := MockIBCPacket(myChannel, data)
+
+	return types.IBCPacketAckMsg{
+		Acknowledgement: ack,
+		OriginalPacket:  packet,
+	}
+}
+
+func MockIBCPacketTimeout(myChannel string, data []byte) types.IBCPacketTimeoutMsg {
+	packet := MockIBCPacket(myChannel, data)
+
+	return types.IBCPacketTimeoutMsg{
+		Packet: packet,
+	}
+}
+
 /*** Mock GasMeter ****/
-// This code is borrowed from lfb-sdk store/types/gas.go
+// This code is borrowed from lbm-sdk store/types/gas.go
 
 // ErrorOutOfGas defines an error thrown when an action results in out of gas.
 type ErrorOutOfGas struct {
@@ -160,11 +235,10 @@ func (g *mockGasMeter) ConsumeGas(amount Gas, descriptor string) {
 	if g.consumed > g.limit {
 		panic(ErrorOutOfGas{descriptor})
 	}
-
 }
 
 /*** Mock KVStore ****/
-// Much of this code is borrowed from lfb-sdk store/transient.go
+// Much of this code is borrowed from lbm-sdk store/transient.go
 
 // Note: these gas prices are all in *wasmer gas* and (sdk gas * 100)
 //
@@ -371,7 +445,7 @@ func NewBankQuerier(balances map[string]types.Coins) BankQuerier {
 func (q BankQuerier) Query(request *types.BankQuery) ([]byte, error) {
 	if request.Balance != nil {
 		denom := request.Balance.Denom
-		var coin = types.NewCoin(0, denom)
+		coin := types.NewCoin(0, denom)
 		for _, c := range q.Balances[request.Balance.Address] {
 			if c.Denom == denom {
 				coin = c

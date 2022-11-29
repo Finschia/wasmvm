@@ -1,0 +1,57 @@
+[package]
+name = "wasmvm"
+version = "1.0.0-0.10.0"
+publish = false
+authors = ["LINE Plus Corporation"]
+edition = "2018"
+description = "Go bindings for cosmwasm contracts"
+repository = "https://github.com/line/wasmvm"
+license = "Apache-2.0"
+readme = "README.md"
+exclude = [".circleci/*", ".gitignore"]
+
+[lib]
+crate-type = ["cdylib"]
+
+# the example is to allow us to compile a static lib with the same codebase as we compile the
+# normal dynamic libs (best workaround I could find to override crate-type on the command line)
+[[example]]
+name = "muslc"
+path = "src/lib.rs"
+crate-type = ["staticlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = []
+# This feature requires Rust nightly because it depends on the unstable backtrace feature.
+backtraces = []
+
+[dependencies]
+cosmwasm-std = { git = "https://github.com/line/cosmwasm", rev = "2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e", features = ["iterator","staking","stargate"] }
+cosmwasm-vm = { git = "https://github.com/line/cosmwasm", rev = "2e02a2632e0250a885ac2c2ff4eae5a9ff1ca95e", features = ["iterator","staking","stargate"] }
+errno = "0.2"
+serde_json = "1.0"
+thiserror = "1.0"
+hex = "0.4"
+wasmer = "2.2.1"
+
+[dev-dependencies]
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+tempfile = "3.1.0"
+
+[build-dependencies]
+cbindgen = "0.18.0"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = true
+lto = false
+debug-assertions = false
+codegen-units = 16
+panic = 'unwind'
+incremental = true
+overflow-checks = true

@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 //------- Results / Msgs -------------
@@ -16,15 +17,49 @@ type ContractResult struct {
 // Response defines the return value on a successful instantiate/execute/migrate.
 // This is the counterpart of `Response` in https://github.com/line/cosmwasm/blob/main/packages/std/src/results/response.rs .
 type Response struct {
-	// Submessages are like Messages, but they guarantee a reply to the calling contract
-	// after their execution, and return both success and error rather than auto-failing on error
-	Submessages []SubMsg `json:"submessages"`
-	// Messages comes directly from the contract and is it's request for action
-	Messages []CosmosMsg `json:"messages"`
+	// Messages comes directly from the contract and is its request for action.
+	// If the ReplyOn value matches the result, the runtime will invoke this
+	// contract's `reply` entry point after execution. Otherwise, this is all
+	// "fire and forget".
+	Messages []SubMsg `json:"messages"`
 	// base64-encoded bytes to return as ABCI.Data field
 	Data []byte `json:"data"`
 	// attributes for a log event to return over abci interface
 	Attributes []EventAttribute `json:"attributes"`
+	// custom events (separate from the main one that contains the attributes
+	// above)
+	Events []Event `json:"events"`
+}
+
+// Events must encode empty array as []
+type Events []Event
+
+// MarshalJSON ensures that we get [] for empty arrays
+func (e Events) MarshalJSON() ([]byte, error) {
+	if len(e) == 0 {
+		return []byte("[]"), nil
+	}
+	var raw []Event = e
+	return json.Marshal(raw)
+}
+
+// UnmarshalJSON ensures that we get [] for empty arrays
+func (e *Events) UnmarshalJSON(data []byte) error {
+	// make sure we deserialize [] back to null
+	if string(data) == "[]" || string(data) == "null" {
+		return nil
+	}
+	var raw []Event
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*e = raw
+	return nil
+}
+
+type Event struct {
+	Type       string          `json:"type"`
+	Attributes EventAttributes `json:"attributes"`
 }
 
 // EventAttributes must encode empty array as []
@@ -65,6 +100,7 @@ type CosmosMsg struct {
 	Bank         *BankMsg         `json:"bank,omitempty"`
 	Custom       json.RawMessage  `json:"custom,omitempty"`
 	Distribution *DistributionMsg `json:"distribution,omitempty"`
+	Gov          *GovMsg          `json:"gov,omitempty"`
 	IBC          *IBCMsg          `json:"ibc,omitempty"`
 	Staking      *StakingMsg      `json:"staking,omitempty"`
 	Stargate     *StargateMsg     `json:"stargate,omitempty"`
@@ -76,7 +112,7 @@ type BankMsg struct {
 	Burn *BurnMsg `json:"burn,omitempty"`
 }
 
-// SendMsg contains instructions for a lfb-sdk/SendMsg
+// SendMsg contains instructions for a lbm-sdk/SendMsg
 // It has a fixed interface here and should be converted into the proper SDK format before dispatching
 type SendMsg struct {
 	ToAddress string `json:"to_address"`
@@ -94,6 +130,62 @@ type IBCMsg struct {
 	Transfer     *TransferMsg     `json:"transfer,omitempty"`
 	SendPacket   *SendPacketMsg   `json:"send_packet,omitempty"`
 	CloseChannel *CloseChannelMsg `json:"close_channel,omitempty"`
+}
+
+type GovMsg struct {
+	// This maps directly to [MsgVote](https://github.com/cosmos/cosmos-sdk/blob/v0.42.5/proto/cosmos/gov/v1beta1/tx.proto#L46-L56) in the Cosmos SDK with voter set to the contract address.
+	Vote *VoteMsg `json:"vote,omitempty"`
+}
+
+type voteOption int
+
+type VoteMsg struct {
+	ProposalId uint64     `json:"proposal_id"`
+	Vote       voteOption `json:"vote"`
+}
+
+const (
+	Yes voteOption = iota
+	No
+	Abstain
+	NoWithVeto
+)
+
+var fromVoteOption = map[voteOption]string{
+	Yes:        "yes",
+	No:         "no",
+	Abstain:    "abstain",
+	NoWithVeto: "no_with_veto",
+}
+
+var toVoteOption = map[string]voteOption{
+	"yes":          Yes,
+	"no":           No,
+	"abstain":      Abstain,
+	"no_with_veto": NoWithVeto,
+}
+
+func (v voteOption) String() string {
+	return fromVoteOption[v]
+}
+
+func (v voteOption) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.String())
+}
+
+func (s *voteOption) UnmarshalJSON(b []byte) error {
+	var j string
+	err := json.Unmarshal(b, &j)
+	if err != nil {
+		return err
+	}
+
+	voteOption, ok := toVoteOption[j]
+	if !ok {
+		return fmt.Errorf("invalid vote option '%v'", j)
+	}
+	*s = voteOption
+	return nil
 }
 
 type TransferMsg struct {
@@ -184,19 +276,19 @@ type ExecuteMsg struct {
 	// as `userMsg` when calling `Handle` on the above-defined contract
 	Msg []byte `json:"msg"`
 	// Send is an optional amount of coins this contract sends to the called contract
-	Send Coins `json:"send"`
+	Funds Coins `json:"funds"`
 }
 
 // InstantiateMsg will create a new contract instance from a previously uploaded CodeID.
 // This allows one contract to spawn "sub-contracts".
 type InstantiateMsg struct {
-	// CodeID is the reference to the wasm byte code as used by the lfb-sdk
+	// CodeID is the reference to the wasm byte code as used by the lbm-sdk
 	CodeID uint64 `json:"code_id"`
 	// Msg is assumed to be a json-encoded message, which will be passed directly
 	// as `userMsg` when calling `Init` on a new contract with the above-defined CodeID
 	Msg []byte `json:"msg"`
 	// Send is an optional amount of coins this contract sends to the called contract
-	Send Coins `json:"send"`
+	Funds Coins `json:"funds"`
 	// Label is optional metadata to be stored with a contract instance.
 	Label string `json:"label"`
 	// Admin (optional) may be set here to allow future migrations from this address
