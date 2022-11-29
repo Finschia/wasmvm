@@ -709,7 +709,7 @@ mod tests {
         assert_eq!(misses, 0);
         assert_eq!(elements_pinned_memory_cache, 1);
         assert_eq!(elements_memory_cache, 0);
-        let expected = 5602873; // +/- 20%
+        let expected = 5665691; // +/- 20%
         assert!(
             size_pinned_memory_cache > expected * 80 / 100,
             "size_pinned_memory_cache: {}",
