@@ -29,7 +29,7 @@ GoError cNext_cgo(iterator_t *ptr, gas_meter_t *gas_meter, uint64_t *used_gas, U
 // api
 GoError cHumanAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
 GoError cCanonicalAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
-GoError cGetContractEnv_cgo(api_t *ptr, U8SliceView contractAddr, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas);
+GoError cGetContractEnv_cgo(api_t *ptr, U8SliceView contractAddr, uint64_t inputLength, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *instantiate_cost, uint64_t *used_gas);
 // and querier
 GoError cQueryExternal_cgo(querier_t *ptr, uint64_t gas_limit, uint64_t *used_gas, U8SliceView request, UnmanagedVector *result, UnmanagedVector *errOut);
 
@@ -370,7 +370,7 @@ func cNext(ref C.iterator_t, gasMeter *C.gas_meter_t, usedGas *C.uint64_t, key *
 type (
 	HumanizeAddress     func([]byte) (string, uint64, error)
 	CanonicalizeAddress func(string) ([]byte, uint64, error)
-	GetContractEnv      func(string) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, error)
+	GetContractEnv      func(string, uint64) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, uint64, error)
 )
 
 type GoAPI struct {
@@ -450,7 +450,7 @@ func cCanonicalAddress(ptr *C.api_t, src C.U8SliceView, dest *C.UnmanagedVector,
 }
 
 //export cGetContractEnv
-func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, contractEnvOut *C.UnmanagedVector, cachePtrOut **C.cache_t, dbOut *C.Db, querierOut *C.GoQuerier, checksumOut *C.UnmanagedVector, errOut *C.UnmanagedVector, used_gas *cu64) (ret C.GoError) {
+func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, inputLength cu64, contractEnvOut *C.UnmanagedVector, cachePtrOut **C.cache_t, dbOut *C.Db, querierOut *C.GoQuerier, checksumOut *C.UnmanagedVector, errOut *C.UnmanagedVector, instantiate_cost *cu64, used_gas *cu64) (ret C.GoError) {
 	defer recoverPanic(&ret)
 
 	if contractEnvOut == nil || cachePtrOut == nil || dbOut == nil || querierOut == nil || checksumOut == nil || errOut == nil {
@@ -462,8 +462,10 @@ func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, contractEnvOut *C
 
 	api := (*GoAPI)(unsafe.Pointer(ptr))
 	s := string(copyU8Slice(contractAddr))
-	contractEnv, cache, store, querier, gasMeter, checksum, cost, err := api.GetContractEnv(s)
+	l := uint64(inputLength)
+	contractEnv, cache, store, querier, gasMeter, checksum, instantiateCost, cost, err := api.GetContractEnv(s, l)
 	*used_gas = cu64(cost)
+	*instantiate_cost = cu64(instantiateCost)
 	if err != nil {
 		// store the actual error message in the return buffer
 		*errOut = newUnmanagedVector([]byte(err.Error()))
