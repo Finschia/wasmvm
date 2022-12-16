@@ -14,8 +14,14 @@ use crate::memory::{U8SliceView, UnmanagedVector};
 use crate::querier::GoQuerier;
 use crate::storage::GoStorage;
 
-const MAX_REGIONS_LENGTH_INPUT: usize = 64 * 1024 * 1024;
-const MAX_REGIONS_LENGTH_OUTPUT: usize = 64 * 1024 * 1024;
+// A mibi (mega binary)
+const MI: usize = 1024 * 1024;
+
+// limit of sum of regions length dynamic link's input/output
+// these are defined as enough big size
+// input size is also limited by instantiate gas cost
+const MAX_REGIONS_LENGTH_INPUT: usize = 64 * MI;
+const MAX_REGIONS_LENGTH_OUTPUT: usize = 64 * MI;
 
 // this represents something passed in from the caller side of FFI
 // in this case a struct with go function pointers
@@ -162,6 +168,7 @@ impl BackendApi for GoApi {
         };
         let input_length = input_datas.iter().fold(0, |sum, x| sum + x.len());
 
+        // get env from wasm module go api
         let cache_t_null_ptr: *mut cache_t = std::ptr::null_mut();
         let input_length_u64 = match input_length.try_into() {
             Ok(v) => v,
@@ -191,6 +198,7 @@ impl BackendApi for GoApi {
         )
         .into();
         let mut gas_info = GasInfo::with_cost(used_gas);
+
         // out of gas if instantiate cannot the limit now,
         // will not instantiate vm and not cost instantiate cost
         let gas_limit = match caller_env
