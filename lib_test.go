@@ -1,11 +1,12 @@
 package cosmwasm
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/line/wasmvm/api"
+	"github.com/line/wasmvm/internal/api"
 	"github.com/line/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,8 @@ const (
 	TESTING_CACHE_SIZE   = 100                     // MiB
 )
 
-const HACKATOM_TEST_CONTRACT = "./api/testdata/hackatom.wasm"
+const CYBERPUNK_TEST_CONTRACT = "./testdata/cyberpunk.wasm"
+const HACKATOM_TEST_CONTRACT = "./testdata/hackatom.wasm"
 
 func withVM(t *testing.T) *VM {
 	tmpdir, err := ioutil.TempDir("", "wasmvm-testing")
@@ -97,6 +99,66 @@ func TestHappyPath(t *testing.T) {
 	assert.Equal(t, expectedData, hres.Data)
 }
 
+func TestEnv(t *testing.T) {
+	vm := withVM(t)
+	checksum := createTestContract(t, vm, CYBERPUNK_TEST_CONTRACT)
+
+	deserCost := types.UFraction{1, 1}
+	gasMeter1 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
+	// instantiate it with this store
+	store := api.NewLookup(gasMeter1)
+	goapi := api.NewMockAPI()
+	balance := types.Coins{types.NewCoin(250, "ATOM")}
+	querier := api.DefaultQuerier(api.MOCK_CONTRACT_ADDR, balance)
+
+	// instantiate
+	env := api.MockEnv()
+	info := api.MockInfo("creator", nil)
+	ires, _, err := vm.Instantiate(checksum, env, info, []byte(`{}`), store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(ires.Messages))
+
+	// Execute mirror env without Transaction
+	env = types.Env{
+		Block: types.BlockInfo{
+			Height:  444,
+			Time:    1955939743_123456789,
+			ChainID: "nice-chain",
+		},
+		Contract: types.ContractInfo{
+			Address: "wasm10dyr9899g6t0pelew4nvf4j5c3jcgv0r5d3a5l",
+		},
+		Transaction: nil,
+	}
+	info = api.MockInfo("creator", nil)
+	msg := []byte(`{"mirror_env": {}}`)
+	ires, _, err = vm.Execute(checksum, env, info, msg, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	expected, _ := json.Marshal(env)
+	require.Equal(t, expected, ires.Data)
+
+	// Execute mirror env with Transaction
+	env = types.Env{
+		Block: types.BlockInfo{
+			Height:  444,
+			Time:    1955939743_123456789,
+			ChainID: "nice-chain",
+		},
+		Contract: types.ContractInfo{
+			Address: "wasm10dyr9899g6t0pelew4nvf4j5c3jcgv0r5d3a5l",
+		},
+		Transaction: &types.TransactionInfo{
+			Index: 18,
+		},
+	}
+	info = api.MockInfo("creator", nil)
+	msg = []byte(`{"mirror_env": {}}`)
+	ires, _, err = vm.Execute(checksum, env, info, msg, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	expected, _ = json.Marshal(env)
+	require.Equal(t, expected, ires.Data)
+}
+
 func TestGetMetrics(t *testing.T) {
 	vm := withVM(t)
 
@@ -136,7 +198,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(0), metrics.HitsMemoryCache)
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 2
 	msg2 := []byte(`{"verifier": "fred", "beneficiary": "susi"}`)
@@ -150,7 +212,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(1), metrics.HitsMemoryCache)
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Pin
 	err = vm.Pin(checksum)
@@ -163,8 +225,8 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizePinnedMemoryCache, 0.18)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizePinnedMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 3
 	msg3 := []byte(`{"verifier": "fred", "beneficiary": "bert"}`)
@@ -180,8 +242,8 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizePinnedMemoryCache, 0.18)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizePinnedMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Unpin
 	err = vm.Unpin(checksum)
@@ -196,7 +258,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 4
 	msg4 := []byte(`{"verifier": "fred", "beneficiary": "jeff"}`)
@@ -213,5 +275,5 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 }

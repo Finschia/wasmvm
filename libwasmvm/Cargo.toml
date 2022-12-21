@@ -1,9 +1,9 @@
 [package]
 name = "wasmvm"
-version = "1.0.0-0.10.0"
+version = "1.1.1-0.11.0"
 publish = false
 authors = ["LINE Plus Corporation"]
-edition = "2018"
+edition = "2021"
 description = "Go bindings for cosmwasm contracts"
 repository = "https://github.com/line/wasmvm"
 license = "Apache-2.0"
@@ -13,16 +13,16 @@ exclude = [".circleci/*", ".gitignore"]
 [lib]
 crate-type = ["cdylib"]
 
-# the example is to allow us to compile a static lib with the same codebase as we compile the
+# the example is to allow us to compile a muslc static lib with the same codebase as we compile the
 # normal dynamic libs (best workaround I could find to override crate-type on the command line)
 [[example]]
 name = "muslc"
 path = "src/lib.rs"
 crate-type = ["staticlib"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[badges]
-maintenance = { status = "actively-developed" }
+# # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# [badges]
+# maintenance = { status = "actively-developed" }
 
 [features]
 default = []
@@ -30,8 +30,8 @@ default = []
 backtraces = []
 
 [dependencies]
-cosmwasm-std = { git = "https://github.com/line/cosmwasm", tag = "v1.0.0-0.6.0", features = ["iterator","staking","stargate"] }
-cosmwasm-vm = {  git = "https://github.com/line/cosmwasm", tag = "v1.0.0-0.6.0", features = ["iterator","staking","stargate"] }
+cosmwasm-std = { git = "https://github.com/line/cosmwasm", rev = "refs/pull/256/head", features = ["iterator","staking","stargate"]}
+cosmwasm-vm = { git = "https://github.com/line/cosmwasm", rev = "refs/pull/256/head", features = ["iterator","staking","stargate"]}
 errno = "0.2"
 serde_json = "1.0"
 thiserror = "1.0"
@@ -42,7 +42,7 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 tempfile = "3.1.0"
 
 [build-dependencies]
-cbindgen = "0.18.0"
+cbindgen = "0.24.3"
 
 [profile.release]
 opt-level = 3
