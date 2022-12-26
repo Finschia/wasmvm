@@ -1,5 +1,5 @@
 use cosmwasm_vm::{
-    copy_region_vals_between_env, write_value_to_env, Backend, BackendApi, BackendError,
+    read_region_vals_from_env, write_value_to_env, Backend, BackendApi, BackendError,
     BackendResult, Checksum, Environment, FunctionMetadata, GasInfo, InstanceOptions, Querier,
     Storage, WasmerVal,
 };
@@ -13,6 +13,15 @@ use crate::error::GoError;
 use crate::memory::{U8SliceView, UnmanagedVector};
 use crate::querier::GoQuerier;
 use crate::storage::GoStorage;
+
+// A mibi (mega binary)
+const MI: usize = 1024 * 1024;
+
+// limit of sum of regions length dynamic link's input/output
+// these are defined as enough big size
+// input size is also limited by instantiate gas cost
+const MAX_REGIONS_LENGTH_INPUT: usize = 64 * MI;
+const MAX_REGIONS_LENGTH_OUTPUT: usize = 64 * MI;
 
 // this represents something passed in from the caller side of FFI
 // in this case a struct with go function pointers
@@ -43,12 +52,14 @@ pub struct GoApi_vtable {
     pub get_contract_env: extern "C" fn(
         *const api_t,
         U8SliceView,
+        u64,
         *mut UnmanagedVector, // env output
         *mut *mut cache_t,
         *mut Db,
         *mut GoQuerier,
         *mut UnmanagedVector, // checksum output
         *mut UnmanagedVector, // error message output
+        *mut u64,
         *mut u64,
     ) -> i32,
 }
@@ -138,37 +149,63 @@ impl BackendApi for GoApi {
         caller_env: &Environment<A, S, Q>,
         contract_addr: &str,
         func_info: &FunctionMetadata,
-        args: &[WasmerVal],
+        arg_ptrs: &[WasmerVal],
     ) -> BackendResult<Box<[WasmerVal]>>
     where
         A: BackendApi + 'static,
         S: Storage + 'static,
         Q: Querier + 'static,
     {
+        // read inputs
+        let input_datas = match read_region_vals_from_env(
+            caller_env,
+            arg_ptrs,
+            MAX_REGIONS_LENGTH_INPUT,
+            false,
+        ) {
+            Ok(v) => v,
+            Err(e) => return (Err(BackendError::dynamic_link_err(e)), GasInfo::free()),
+        };
+        let input_length = input_datas.iter().fold(0, |sum, x| sum + x.len());
+
+        // get env from wasm module go api
         let cache_t_null_ptr: *mut cache_t = std::ptr::null_mut();
+        let input_length_u64 = match input_length.try_into() {
+            Ok(v) => v,
+            Err(e) => return (Err(BackendError::dynamic_link_err(e)), GasInfo::free()),
+        };
         let mut error_msg = UnmanagedVector::default();
         let mut contract_env_out = UnmanagedVector::default();
         let mut cache_ptr_out = MaybeUninit::new(cache_t_null_ptr);
         let mut db_out = MaybeUninit::uninit();
         let mut querier_out = MaybeUninit::uninit();
         let mut checksum_out = UnmanagedVector::default();
+        let mut instantiate_cost = 0_u64;
         let mut used_gas = 0_u64;
 
         let go_result: GoError = (self.vtable.get_contract_env)(
             self.state,
             U8SliceView::new(Some(contract_addr.as_bytes())),
+            input_length_u64,
             &mut contract_env_out as *mut UnmanagedVector,
             cache_ptr_out.as_mut_ptr(),
             db_out.as_mut_ptr(),
             querier_out.as_mut_ptr(),
             &mut checksum_out as *mut UnmanagedVector,
             &mut error_msg as *mut UnmanagedVector,
+            &mut instantiate_cost as *mut u64,
             &mut used_gas as *mut u64,
         )
         .into();
         let mut gas_info = GasInfo::with_cost(used_gas);
-        let gas_limit = match caller_env.get_gas_left().checked_sub(used_gas) {
-            Some(renaming) => renaming,
+
+        // out of gas if instantiate cannot the limit now,
+        // will not instantiate vm and not cost instantiate cost
+        let gas_limit = match caller_env
+            .get_gas_left()
+            .checked_sub(used_gas + instantiate_cost)
+        {
+            Some(remaining) => remaining,
             None => return (Err(BackendError::out_of_gas()), gas_info),
         };
 
@@ -210,35 +247,66 @@ impl BackendApi for GoApi {
             gas_limit,
             print_debug,
         };
+
+        // make instance
         let mut callee_instance = match cache.get_instance(&checksum, backend, options) {
             Ok(ins) => ins,
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
         callee_instance.env.set_serialized_env(&contract_env);
         callee_instance.set_storage_readonly(caller_env.is_storage_readonly());
+        gas_info.cost += instantiate_cost;
+
+        // check callstack
         match caller_env.try_pass_callstack(&mut callee_instance.env) {
             Ok(_) => {}
             Err(e) => return (Err(BackendError::user_err(e.to_string())), gas_info),
         }
 
-        let env_arg_region_ptr = write_value_to_env(&callee_instance.env, &contract_env).unwrap();
-        let mut copied_region_ptrs: Vec<WasmerVal> =
-            copy_region_vals_between_env(caller_env, &callee_instance.env, args, false)
-                .unwrap()
-                .into();
-        let mut arg_region_ptrs = vec![env_arg_region_ptr];
-        arg_region_ptrs.append(&mut copied_region_ptrs);
+        // prepare inputs (+1 is for env)
+        let mut arg_region_ptrs = Vec::<WasmerVal>::with_capacity(input_datas.len() + 1);
 
+        // write env
+        let env_ptr = match write_value_to_env(&callee_instance.env, &contract_env) {
+            Ok(v) => v,
+            Err(e) => return (Err(BackendError::dynamic_link_err(e)), gas_info),
+        };
+        arg_region_ptrs.push(env_ptr);
+
+        // write inputs
+        for data in input_datas {
+            let ptr = match write_value_to_env(&callee_instance.env, &data) {
+                Ok(v) => v,
+                Err(e) => return (Err(BackendError::dynamic_link_err(e)), gas_info),
+            };
+            arg_region_ptrs.push(ptr);
+        }
+
+        // call
         let call_ret = match callee_instance.call_function_strict(
             &func_info.signature,
             &func_info.name,
             &arg_region_ptrs,
         ) {
             Ok(rets) => {
-                Ok(
-                    copy_region_vals_between_env(&callee_instance.env, caller_env, &rets, true)
-                        .unwrap(),
-                )
+                let ret_datas = match read_region_vals_from_env(
+                    &callee_instance.env,
+                    &rets,
+                    MAX_REGIONS_LENGTH_OUTPUT,
+                    true,
+                ) {
+                    Ok(v) => v,
+                    Err(e) => return (Err(BackendError::dynamic_link_err(e)), gas_info),
+                };
+                let mut ret_region_ptrs = Vec::<WasmerVal>::with_capacity(ret_datas.len());
+                for data in ret_datas {
+                    let ptr = match write_value_to_env(caller_env, &data) {
+                        Ok(v) => v,
+                        Err(e) => return (Err(BackendError::dynamic_link_err(e)), gas_info),
+                    };
+                    ret_region_ptrs.push(ptr);
+                }
+                Ok(ret_region_ptrs.into_boxed_slice())
             }
             Err(e) => Err(BackendError::dynamic_link_err(e.to_string())),
         };
@@ -255,17 +323,20 @@ impl BackendApi for GoApi {
         let mut db_out = MaybeUninit::uninit();
         let mut querier_out = MaybeUninit::uninit();
         let mut checksum_out = UnmanagedVector::default();
+        let mut instantiate_cost = 0_u64;
         let mut used_gas = 0_u64;
 
         let go_result: GoError = (self.vtable.get_contract_env)(
             self.state,
             U8SliceView::new(Some(contract_addr.as_bytes())),
+            0,
             &mut contract_env_out as *mut UnmanagedVector,
             cache_ptr_out.as_mut_ptr(),
             db_out.as_mut_ptr(),
             querier_out.as_mut_ptr(),
             &mut checksum_out as *mut UnmanagedVector,
             &mut error_msg as *mut UnmanagedVector,
+            &mut instantiate_cost as *mut u64,
             &mut used_gas as *mut u64,
         )
         .into();
@@ -322,7 +393,7 @@ mod tests {
     #[no_mangle]
     extern "C" fn mock_address(
         _api: *const api_t,
-        _sv: U8SliceView,
+        _addr: U8SliceView,
         output: *mut UnmanagedVector,
         _err: *mut UnmanagedVector,
         _gas_used: *mut u64,
@@ -337,7 +408,7 @@ mod tests {
     #[no_mangle]
     extern "C" fn mock_address_panic(
         _api: *const api_t,
-        _sv: U8SliceView,
+        _addr: U8SliceView,
         _output: *mut UnmanagedVector,
         _err: *mut UnmanagedVector,
         _gas_used: *mut u64,
@@ -349,7 +420,7 @@ mod tests {
     #[no_mangle]
     extern "C" fn mock_address_with_none_output(
         _api: *const api_t,
-        _sv: U8SliceView,
+        _addr: U8SliceView,
         _output: *mut UnmanagedVector,
         _err: *mut UnmanagedVector,
         _gas_used: *mut u64,
@@ -361,13 +432,15 @@ mod tests {
     #[no_mangle]
     extern "C" fn mock_get_contract_env_with_none_outputs(
         _api: *const api_t,
-        _sv: U8SliceView,
+        _addr: U8SliceView,
+        _input_len: u64,
         _env: *mut UnmanagedVector,
         _cache: *mut *mut cache_t,
         _db: *mut Db,
         _go_querier: *mut GoQuerier,
         _checksum: *mut UnmanagedVector,
         _err: *mut UnmanagedVector,
+        _instantiate_cost: *mut u64,
         _gas_used: *mut u64,
     ) -> i32 {
         // ok
@@ -377,13 +450,15 @@ mod tests {
     #[no_mangle]
     extern "C" fn mock_get_contract_env_with_checksum(
         _api: *const api_t,
-        _sv: U8SliceView,
+        _addr: U8SliceView,
+        _input_len: u64,
         _env: *mut UnmanagedVector,
         _cache: *mut *mut cache_t,
         _db: *mut Db,
         _go_querier: *mut GoQuerier,
         checksum: *mut UnmanagedVector,
         _err: *mut UnmanagedVector,
+        _instantiate_cost: *mut u64,
         _gas_used: *mut u64,
     ) -> i32 {
         let dummy_wasm = b"dummy_wasm";
@@ -397,13 +472,15 @@ mod tests {
     #[no_mangle]
     extern "C" fn mock_get_contract_env_panic(
         _api: *const api_t,
-        _sv: U8SliceView,
+        _addr: U8SliceView,
+        _input_len: u64,
         _env: *mut UnmanagedVector,
         _cache: *mut *mut cache_t,
         _db: *mut Db,
         _go_querier: *mut GoQuerier,
         _checksum: *mut UnmanagedVector,
         _err: *mut UnmanagedVector,
+        _instantiate_cost: *mut u64,
         _gas_used: *mut u64,
     ) -> i32 {
         // panic
