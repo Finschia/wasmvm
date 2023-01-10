@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/line/wasmvm/api"
+	"github.com/line/wasmvm/internal/api"
 	"github.com/line/wasmvm/types"
 )
 

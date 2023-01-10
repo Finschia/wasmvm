@@ -20,7 +20,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.57.0
+          toolchain: 1.60.0
           profile: minimal
           override: true
       - name: Checkout
@@ -56,8 +56,8 @@ jobs:
       - name: Collect artifacts
         run: |
           mkdir artifacts
-          cp ./api/libwasmvm_muslc.a artifacts/libwasmvm_muslc.x86_64.a
-          cp ./api/libwasmvm_muslc.aarch64.a artifacts/libwasmvm_muslc.aarch64.a
+          cp ./internal/api/libwasmvm_muslc.a artifacts/libwasmvm_muslc.x86_64.a
+          cp ./internal/api/libwasmvm_muslc.aarch64.a artifacts/libwasmvm_muslc.aarch64.a
       - name: Create checksums
         working-directory: artifacts
         run: sha256sum * > checksums.txt && cat checksums.txt

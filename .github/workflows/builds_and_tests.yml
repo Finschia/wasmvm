@@ -9,17 +9,17 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.57.0
+          toolchain: 1.60.0
           target: wasm32-unknown-unknown
           profile: minimal
           override: true
       - name: Checkout
         uses: actions/checkout@v2
       - name: Cache cargo
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.cargo
-          key: cargocache-v2-libwasmvm_sanity-rust:1.57.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-libwasmvm_sanity-rust:1.60.0-${{ hashFiles('Cargo.lock') }}
       - name: Install shellcheck
         run: sudo apt install shellcheck
       - name: Show version information
@@ -113,17 +113,17 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.57.0
-          target: wasm32-unknown-unknown
+          toolchain: 1.60.0
+          target: x86_64-unknown-linux-gnu
           profile: minimal
           override: true
       - name: Checkout
         uses: actions/checkout@v2
       - name: Cache cargo
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.cargo
-          key: cargocache-v2-build_shared_library-rust:1.57.0-${{ hashFiles('Cargo.lock') }}
+          key: cargocache-v2-build_shared_library-rust:1.60.0-${{ hashFiles('Cargo.lock') }}
       - name: Show version information
         run: rustc --version; cargo --version; rustup --version
       - name: Create release build of libwasmvm
@@ -132,24 +132,9 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: libwasmvm
-          path: ./api/libwasmvm.x86_64.so
+          path: ./internal/api/libwasmvm.x86_64.so
 
-  build_static_lib:
-    runs-on: ubuntu-latest
-    steps:
-      - name: set up
-        uses: actions/setup-go@v3.2.1
-        with:
-          go-version: 1.17
-        id: go
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Build docker image
-        run: cd builders && make docker-image-alpine
-      - name: Build & Test static library
-        run: make release-build-alpine
-
-  test:
+  test_shared_lib:
     needs: build_shared_library
     runs-on: ubuntu-latest
     env:
@@ -169,10 +154,18 @@ jobs:
           name: libwasmvm
           path: /tmp/builds
       - name: Copy libwasmvm
-        run: cp /tmp/builds/libwasmvm.x86_64.so ./api
+        run: cp /tmp/builds/libwasmvm.x86_64.so ./internal/api
       - name: Go integration tests
         run: make test
       - name: Go tests with cgo and race condition safety checks
         run: make test-safety
       - name: Make build-go
         run: make build-go
+
+  test_static_lib:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build static library and test
+        run: make test-alpine
