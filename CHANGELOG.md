@@ -1,8 +1,15 @@
 # Changelog
 
-## [Unreleased]
+
+## [[v1.1.1-0.11.1](https://github.com/line/wasmvm/compare/v1.1.1-0.11.0...v1.1.1-0.11.1)] - 2023-01-13
+
+### Fixes
+* add .so / .dylib file and modify Makefile ([#85](https://github.com/line/wasmvm/pull/85))
+
+## [[v1.1.1-0.11.0](https://github.com/line/wasmvm/compare/v1.0.0-0.10.0...v1.1.1-0.11.0)] - 2023-01-11
 
 ### Features
+* merge upstream 1.1.1 ([#84](https://github.com/line/wasmvm/pull/84))
 
 ### Fixes
 * fix: getmetrics test due to this is environment-dependent test ([#80](https://github.com/line/wasmvm/pull/80))
