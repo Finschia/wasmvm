@@ -35,12 +35,28 @@ jobs:
           VERSION=$(cargo tree -i wasmvm | grep -oE "[0-9]+(\.[0-9]+){2}-[0-9]+(\.[0-9]+){2}")
             echo ::set-output name=version::v$VERSION
 
-  build_static_lib:
-    name: Build static libraries
+  push-tag: # if the version does not exist as git tag, push it
+    name: Push Tag
     needs:
       - get-version
     if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
     runs-on: ubuntu-latest
+    steps:
+      - name: Push Tag to GitHub
+        run: |
+          curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+          -d "{\"ref\": \"refs/tags/${{ needs.get-version.outputs.package-version }}\", \"sha\": \"${GITHUB_SHA}\"}" \
+          "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs"
+
+  update-releases:
+    name: Update releases
+    needs:
+      - get-version
+      - push-tag     
+    if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: set up
         uses: actions/setup-go@v3.2.1
@@ -56,40 +72,13 @@ jobs:
       - name: Collect artifacts
         run: |
           mkdir artifacts
-          cp ./internal/api/libwasmvm_muslc.a artifacts/libwasmvm_muslc.x86_64.a
-          cp ./internal/api/libwasmvm_muslc.aarch64.a artifacts/libwasmvm_muslc.aarch64.a
+          cp ./internal/api/libwasmvm_muslc.a ./artifacts/libwasmvm_muslc.x86_64.a
+          cp ./internal/api/libwasmvm_muslc.aarch64.a ./artifacts/libwasmvm_muslc.aarch64.a
       - name: Create checksums
-        working-directory: artifacts
+        working-directory: ./artifacts
         run: sha256sum * > checksums.txt && cat checksums.txt
-      - name: Upload static library
-        uses: actions/upload-artifact@v2
-        with:
-          name: artifacts
-          path: ./artifacts
-
-  push-tag: # if the version does not exist as git tag, push it
-    name: Push Tag
-    needs:
-      - get-version
-    if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Push Tag to GitHub
-        run: |
-          curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-          -d "{\"ref\": \"refs/tags/${{ needs.get-version.outputs.package-version }}\", \"sha\": \"${GITHUB_SHA}\"}" \
-          "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs"
-
-  update-releases:
-    name: Update Latest release
-    needs:
-      - push-tag
-      - build_static_lib
-    if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
-    runs-on: ubuntu-latest
-    steps:
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v0.1.13
         with:
           tag_name: ${{ needs.get-version.outputs.package-version }}
           body: ${{ github.event.pull_request.body }}
