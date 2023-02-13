@@ -141,7 +141,7 @@ func (vm *VM) Instantiate(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Instantiate(vm.cache, checksum, envBin, infoBin, initMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.Instantiate(vm.cache, checksum, envBin, infoBin, initMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -157,9 +157,21 @@ func (vm *VM) Instantiate(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if result.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", result.Err)
 	}
+	result.Ok.Events = append(result.Ok.Events, events...)
+	result.Ok.Attributes = append(result.Ok.Attributes, attributes...)
 	return result.Ok, gasUsed, nil
 }
 
@@ -189,7 +201,7 @@ func (vm *VM) Execute(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Execute(vm.cache, checksum, envBin, infoBin, executeMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.Execute(vm.cache, checksum, envBin, infoBin, executeMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -205,9 +217,21 @@ func (vm *VM) Execute(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if result.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", result.Err)
 	}
+	result.Ok.Events = append(result.Ok.Events, events...)
+	result.Ok.Attributes = append(result.Ok.Attributes, attributes...)
 	return result.Ok, gasUsed, nil
 }
 
@@ -272,7 +296,7 @@ func (vm *VM) Migrate(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Migrate(vm.cache, checksum, envBin, migrateMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.Migrate(vm.cache, checksum, envBin, migrateMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -288,9 +312,21 @@ func (vm *VM) Migrate(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if resp.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return resp.Ok, gasUsed, nil
 }
 
@@ -315,7 +351,7 @@ func (vm *VM) Sudo(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Sudo(vm.cache, checksum, envBin, sudoMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.Sudo(vm.cache, checksum, envBin, sudoMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -331,9 +367,21 @@ func (vm *VM) Sudo(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if resp.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return resp.Ok, gasUsed, nil
 }
 
@@ -360,7 +408,7 @@ func (vm *VM) Reply(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Reply(vm.cache, checksum, envBin, replyBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.Reply(vm.cache, checksum, envBin, replyBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -376,9 +424,21 @@ func (vm *VM) Reply(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if resp.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return resp.Ok, gasUsed, nil
 }
 
@@ -446,7 +506,7 @@ func (vm *VM) IBCChannelConnect(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCChannelConnect(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.IBCChannelConnect(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -462,9 +522,21 @@ func (vm *VM) IBCChannelConnect(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if resp.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return resp.Ok, gasUsed, nil
 }
 
@@ -489,7 +561,7 @@ func (vm *VM) IBCChannelClose(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCChannelClose(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.IBCChannelClose(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -505,9 +577,21 @@ func (vm *VM) IBCChannelClose(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if resp.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return resp.Ok, gasUsed, nil
 }
 
@@ -532,7 +616,7 @@ func (vm *VM) IBCPacketReceive(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCPacketReceive(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.IBCPacketReceive(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -545,9 +629,21 @@ func (vm *VM) IBCPacketReceive(
 
 	var resp types.IBCReceiveResult
 	err = json.Unmarshal(data, &resp)
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	if resp.Err != "" {
+		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return &resp, gasUsed, nil
 }
 
@@ -573,7 +669,7 @@ func (vm *VM) IBCPacketAck(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCPacketAck(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.IBCPacketAck(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -589,9 +685,21 @@ func (vm *VM) IBCPacketAck(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if resp.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return resp.Ok, gasUsed, nil
 }
 
@@ -617,7 +725,7 @@ func (vm *VM) IBCPacketTimeout(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCPacketTimeout(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, eventsData, attributesData, gasUsed, err := api.IBCPacketTimeout(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -633,9 +741,21 @@ func (vm *VM) IBCPacketTimeout(
 	if err != nil {
 		return nil, gasUsed, err
 	}
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
 	if resp.Err != "" {
 		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
 	}
+	resp.Ok.Events = append(resp.Ok.Events, events...)
+	resp.Ok.Attributes = append(resp.Ok.Attributes, attributes...)
 	return resp.Ok, gasUsed, nil
 }
 

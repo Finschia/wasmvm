@@ -1,6 +1,7 @@
 package cosmwasm
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -20,6 +21,7 @@ const (
 )
 
 const HACKATOM_TEST_CONTRACT = "./api/testdata/hackatom.wasm"
+const EVENTS_TEST_CONTRACT = "./api/testdata/events.wasm"
 
 func withVM(t *testing.T) *VM {
 	tmpdir, err := ioutil.TempDir("", "wasmvm-testing")
@@ -214,4 +216,64 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
 	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+}
+
+func TestEventManage(t *testing.T) {
+	vm := withVM(t)
+
+	// Create contract
+	checksum := createTestContract(t, vm, EVENTS_TEST_CONTRACT)
+
+	deserCost := types.UFraction{1, 1}
+
+	// Instantiate
+	gasMeter1 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
+	// instantiate it with this store
+	store := api.NewLookup(gasMeter1)
+	goapi := api.NewMockAPI()
+	balance := types.Coins{}
+	querier := api.DefaultQuerier(api.MOCK_CONTRACT_ADDR, balance)
+
+	env := api.MockEnv()
+	info := api.MockInfo("creator", nil)
+	msg1 := []byte(`{}`)
+	ires, _, err := vm.Instantiate(checksum, env, info, msg1, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(ires.Messages))
+
+	// Issue Events
+	gasMeter2 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
+	store.SetGasMeter(gasMeter2)
+	info = api.MockInfo("alice", nil)
+	eventsStr := `[{"type":"ty1","attributes":[{"key":"k11","value":"v11"},{"key":"k12","value":"v12"}]},{"type":"ty2","attributes":[{"key":"k21","value":"v21"},{"key":"k22","value":"v22"}]}]`
+	msg2 := []byte(fmt.Sprintf(`{"events":{"events":%s}}`, eventsStr))
+
+	eres1, _, err := vm.Execute(checksum, env, info, msg2, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(eres1.Messages))
+
+	var expectedEvents types.Events
+	err = expectedEvents.UnmarshalJSON([]byte(eventsStr))
+	require.NoError(t, err)
+
+	require.Equal(t, []types.Event(expectedEvents), eres1.Events)
+	require.Equal(t, 0, len(eres1.Attributes))
+
+	// Issue Attributes
+	gasMeter3 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
+	store.SetGasMeter(gasMeter2)
+	info = api.MockInfo("alice", nil)
+	attributesStr := `[{"key":"alice","value":"42"},{"key":"bob","value":"101010"}]`
+	msg3 := []byte(fmt.Sprintf(`{"attributes":{"attributes":%s}}`, attributesStr))
+
+	eres2, _, err := vm.Execute(checksum, env, info, msg3, store, *goapi, querier, gasMeter3, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(eres2.Messages))
+
+	var expectedAttributes types.EventAttributes
+	err = expectedAttributes.UnmarshalJSON([]byte(attributesStr))
+	require.NoError(t, err)
+
+	require.Equal(t, 0, len(eres2.Events))
+	require.Equal(t, []types.EventAttribute(expectedAttributes), eres2.Attributes)
 }
