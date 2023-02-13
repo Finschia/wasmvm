@@ -3,6 +3,7 @@
 use std::convert::TryInto;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
+use cosmwasm_std::to_vec;
 use cosmwasm_vm::{
     call_execute_raw, call_ibc_channel_close_raw, call_ibc_channel_connect_raw,
     call_ibc_channel_open_raw, call_ibc_packet_ack_raw, call_ibc_packet_receive_raw,
@@ -40,6 +41,8 @@ pub extern "C" fn instantiate(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_3_args(
@@ -55,6 +58,8 @@ pub extern "C" fn instantiate(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -72,6 +77,8 @@ pub extern "C" fn execute(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_3_args(
@@ -87,6 +94,8 @@ pub extern "C" fn execute(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -103,6 +112,8 @@ pub extern "C" fn migrate(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -117,6 +128,8 @@ pub extern "C" fn migrate(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -133,6 +146,8 @@ pub extern "C" fn sudo(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -147,6 +162,8 @@ pub extern "C" fn sudo(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -163,6 +180,8 @@ pub extern "C" fn reply(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -177,6 +196,8 @@ pub extern "C" fn reply(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -207,6 +228,8 @@ pub extern "C" fn query(
         gas_limit,
         print_debug,
         gas_used,
+        None,
+        None,
         error_msg,
     )
 }
@@ -237,6 +260,8 @@ pub extern "C" fn ibc_channel_open(
         gas_limit,
         print_debug,
         gas_used,
+        None,
+        None,
         error_msg,
     )
 }
@@ -253,6 +278,8 @@ pub extern "C" fn ibc_channel_connect(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -267,6 +294,8 @@ pub extern "C" fn ibc_channel_connect(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -283,6 +312,8 @@ pub extern "C" fn ibc_channel_close(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -297,6 +328,8 @@ pub extern "C" fn ibc_channel_close(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -313,6 +346,8 @@ pub extern "C" fn ibc_packet_receive(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -327,6 +362,8 @@ pub extern "C" fn ibc_packet_receive(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -343,6 +380,8 @@ pub extern "C" fn ibc_packet_ack(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -357,6 +396,8 @@ pub extern "C" fn ibc_packet_ack(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -373,6 +414,8 @@ pub extern "C" fn ibc_packet_timeout(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -387,6 +430,8 @@ pub extern "C" fn ibc_packet_timeout(
         gas_limit,
         print_debug,
         gas_used,
+        events,
+        attributes,
         error_msg,
     )
 }
@@ -412,6 +457,8 @@ fn call_2_args(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     let r = match to_cache(cache) {
@@ -427,6 +474,8 @@ fn call_2_args(
                 querier,
                 gas_limit,
                 print_debug,
+                events,
+                attributes,
                 gas_used,
             )
         }))
@@ -449,6 +498,8 @@ fn do_call_2_args(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     gas_used: Option<&mut u64>,
 ) -> Result<Vec<u8>, Error> {
     let gas_used = gas_used.ok_or_else(|| Error::empty_arg(GAS_USED_ARG))?;
@@ -468,6 +519,23 @@ fn do_call_2_args(
     // We only check this result after reporting gas usage and returning the instance into the cache.
     let res = vm_fn(&mut instance, arg1, arg2);
     *gas_used = instance.create_gas_report().used_internally;
+    match (events, attributes) {
+        (None, None) => (),
+        (Some(e), Some(a)) => {
+            let (events, attributes) = instance.get_events_attributes();
+            let events_vec = match to_vec(&events) {
+                Ok(v) => v,
+                Err(e) => return Err(Error::invalid_events(e.to_string())),
+            };
+            let attributes_vec = match to_vec(&attributes) {
+                Ok(v) => v,
+                Err(e) => return Err(Error::invalid_attributes(e.to_string())),
+            };
+            *e = UnmanagedVector::new(Some(events_vec));
+            *a = UnmanagedVector::new(Some(attributes_vec));
+        }
+        _ => return Err(Error::unset_arg("events or attributes")),
+    };
     instance.recycle();
     Ok(res?)
 }
@@ -495,6 +563,8 @@ fn call_3_args(
     gas_limit: u64,
     print_debug: bool,
     gas_used: Option<&mut u64>,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     let r = match to_cache(cache) {
@@ -511,6 +581,8 @@ fn call_3_args(
                 querier,
                 gas_limit,
                 print_debug,
+                events,
+                attributes,
                 gas_used,
             )
         }))
@@ -533,6 +605,8 @@ fn do_call_3_args(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
+    events: Option<&mut UnmanagedVector>,
+    attributes: Option<&mut UnmanagedVector>,
     gas_used: Option<&mut u64>,
 ) -> Result<Vec<u8>, Error> {
     let gas_used = gas_used.ok_or_else(|| Error::empty_arg(GAS_USED_ARG))?;
@@ -553,6 +627,23 @@ fn do_call_3_args(
     // We only check this result after reporting gas usage and returning the instance into the cache.
     let res = vm_fn(&mut instance, arg1, arg2, arg3);
     *gas_used = instance.create_gas_report().used_internally;
+    match (events, attributes) {
+        (None, None) => (),
+        (Some(e), Some(a)) => {
+            let (events, attributes) = instance.get_events_attributes();
+            let events_vec = match to_vec(&events) {
+                Ok(v) => v,
+                Err(e) => return Err(Error::invalid_events(e.to_string())),
+            };
+            let attributes_vec = match to_vec(&attributes) {
+                Ok(v) => v,
+                Err(e) => return Err(Error::invalid_attributes(e.to_string())),
+            };
+            *e = UnmanagedVector::new(Some(events_vec));
+            *a = UnmanagedVector::new(Some(attributes_vec));
+        }
+        _ => return Err(Error::unset_arg("events or attributes")),
+    };
     instance.recycle();
     Ok(res?)
 }
