@@ -47,6 +47,7 @@ func (e Events) MarshalJSON() ([]byte, error) {
 func (e *Events) UnmarshalJSON(data []byte) error {
 	// make sure we deserialize [] back to null
 	if string(data) == "[]" || string(data) == "null" {
+		*e = nil
 		return nil
 	}
 	var raw []Event
@@ -78,6 +79,7 @@ func (a EventAttributes) MarshalJSON() ([]byte, error) {
 func (a *EventAttributes) UnmarshalJSON(data []byte) error {
 	// make sure we deserialize [] back to null
 	if string(data) == "[]" || string(data) == "null" {
+		*a = nil
 		return nil
 	}
 	var raw []EventAttribute
