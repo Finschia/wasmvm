@@ -611,7 +611,6 @@ func TestMigrate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(attributes))
 
-
 	// should update verifier to alice
 	data, _, err = Query(cache, checksum, env, query, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
@@ -819,7 +818,6 @@ func TestDispatchSubmessage(t *testing.T) {
 	err = attributes.UnmarshalJSON(attributesData)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(attributes))
-
 
 	// make sure it blindly followed orders
 	var result types.ContractResult
