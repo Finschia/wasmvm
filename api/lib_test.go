@@ -192,7 +192,7 @@ func TestGetMetrics(t *testing.T) {
 	env := MockEnvBin(t)
 	info := MockInfoBin(t, "creator")
 	msg1 := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	_, _, err = Instantiate(cache, checksum, env, info, msg1, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	_, _, _, _, err = Instantiate(cache, checksum, env, info, msg1, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 
 	// GetMetrics 3
@@ -205,7 +205,7 @@ func TestGetMetrics(t *testing.T) {
 
 	// Instantiate 2
 	msg2 := []byte(`{"verifier": "fred", "beneficiary": "susi"}`)
-	_, _, err = Instantiate(cache, checksum, env, info, msg2, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	_, _, _, _, err = Instantiate(cache, checksum, env, info, msg2, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 
 	// GetMetrics 4
@@ -232,7 +232,7 @@ func TestGetMetrics(t *testing.T) {
 
 	// Instantiate 3
 	msg3 := []byte(`{"verifier": "fred", "beneficiary": "bert"}`)
-	_, _, err = Instantiate(cache, checksum, env, info, msg3, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	_, _, _, _, err = Instantiate(cache, checksum, env, info, msg3, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 
 	// GetMetrics 6
@@ -263,7 +263,7 @@ func TestGetMetrics(t *testing.T) {
 
 	// Instantiate 4
 	msg4 := []byte(`{"verifier": "fred", "beneficiary": "jeff"}`)
-	_, _, err = Instantiate(cache, checksum, env, info, msg4, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	_, _, _, _, err = Instantiate(cache, checksum, env, info, msg4, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 
 	// GetMetrics 8
@@ -298,7 +298,7 @@ func TestInstantiate(t *testing.T) {
 	info := MockInfoBin(t, "creator")
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
 
-	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0x12e722d7c), cost)
@@ -308,6 +308,17 @@ func TestInstantiate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "", result.Err)
 	require.Equal(t, 0, len(result.Ok.Messages))
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 }
 
 func TestExecute(t *testing.T) {
@@ -328,12 +339,23 @@ func TestExecute(t *testing.T) {
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
 
 	start := time.Now()
-	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0x12e722d7c), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 
 	// execute with the same store
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -342,11 +364,20 @@ func TestExecute(t *testing.T) {
 	env = MockEnvBin(t)
 	info = MockInfoBin(t, "fred")
 	start = time.Now()
-	res, cost, err = Execute(cache, checksum, env, info, []byte(`{"release":{}}`), &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, cost, err = Execute(cache, checksum, env, info, []byte(`{"release":{}}`), &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0x21f7a66d0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// make sure it does not uses EventManager
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 
 	// make sure it read the balance properly and we got 250 atoms
 	var result types.ContractResult
@@ -392,12 +423,23 @@ func TestExecuteCpuLoop(t *testing.T) {
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
 
 	start := time.Now()
-	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0x12e722d7c), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 
 	// execute a cpu loop
 	maxGas := uint64(40_000_000)
@@ -406,7 +448,7 @@ func TestExecuteCpuLoop(t *testing.T) {
 	store.SetGasMeter(gasMeter2)
 	info = MockInfoBin(t, "fred")
 	start = time.Now()
-	res, cost, err = Execute(cache, checksum, env, info, []byte(`{"cpu_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	res, _, _, cost, err = Execute(cache, checksum, env, info, []byte(`{"cpu_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.Error(t, err)
 	assert.Equal(t, cost, maxGas)
@@ -431,9 +473,20 @@ func TestExecuteStorageLoop(t *testing.T) {
 
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
 
-	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 
 	// execute a storage loop
 	gasMeter2 := NewMockGasMeter(maxGas)
@@ -441,7 +494,7 @@ func TestExecuteStorageLoop(t *testing.T) {
 	store.SetGasMeter(gasMeter2)
 	info = MockInfoBin(t, "fred")
 	start := time.Now()
-	res, cost, err = Execute(cache, checksum, env, info, []byte(`{"storage_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	res, _, _, cost, err = Execute(cache, checksum, env, info, []byte(`{"storage_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
 	diff := time.Now().Sub(start)
 	require.Error(t, err)
 	t.Logf("StorageLoop Time (%d gas): %s\n", cost, diff)
@@ -470,18 +523,37 @@ func TestExecuteUserErrorsInApiCalls(t *testing.T) {
 
 	defaultApi := NewMockAPI()
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	res, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, defaultApi, &querier, maxGas, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, defaultApi, &querier, maxGas, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
 
 	gasMeter2 := NewMockGasMeter(maxGas)
 	igasMeter2 := GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	info = MockInfoBin(t, "fred")
 	failingApi := NewMockFailureAPI()
-	res, _, err = Execute(cache, checksum, env, info, []byte(`{"user_errors_in_api_calls":{}}`), &igasMeter2, store, failingApi, &querier, maxGas, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err = Execute(cache, checksum, env, info, []byte(`{"user_errors_in_api_calls":{}}`), &igasMeter2, store, failingApi, &querier, maxGas, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
 }
 
 func TestMigrate(t *testing.T) {
@@ -500,9 +572,20 @@ func TestMigrate(t *testing.T) {
 	info := MockInfoBin(t, "creator")
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
 
-	res, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
 
 	// verifier is fred
 	query := []byte(`{"verifier":{}}`)
@@ -516,8 +599,18 @@ func TestMigrate(t *testing.T) {
 
 	// migrate to a new verifier - alice
 	// we use the same code blob as we are testing hackatom self-migration
-	res, _, err = Migrate(cache, checksum, env, []byte(`{"verifier":"alice"}`), &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err = Migrate(cache, checksum, env, []byte(`{"verifier":"alice"}`), &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
+
+	// make sure it does not uses EventManager
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
 
 	// should update verifier to alice
 	data, _, err = Query(cache, checksum, env, query, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
@@ -543,11 +636,22 @@ func TestMultipleInstances(t *testing.T) {
 	env := MockEnvBin(t)
 	info := MockInfoBin(t, "regen")
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store1, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store1, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	// we now count wasm gas charges and db writes
 	assert.Equal(t, uint64(0x12c4f266c), cost)
+
+	// make sure it does not uses EventManager
+	var eventsByEventManager types.Events
+	err = eventsByEventManager.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(eventsByEventManager))
+
+	var attributesByEventManager types.EventAttributes
+	err = attributesByEventManager.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributesByEventManager))
 
 	// instance2 controlled by mary
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -555,10 +659,19 @@ func TestMultipleInstances(t *testing.T) {
 	store2 := NewLookup(gasMeter2)
 	info = MockInfoBin(t, "chrous")
 	msg = []byte(`{"verifier": "mary", "beneficiary": "sue"}`)
-	res, cost, err = Instantiate(cache, checksum, env, info, msg, &igasMeter2, store2, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, cost, err = Instantiate(cache, checksum, env, info, msg, &igasMeter2, store2, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0x12d8b01cc), cost)
+
+	// make sure it does not uses EventManager
+	err = eventsByEventManager.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(eventsByEventManager))
+
+	err = attributesByEventManager.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributesByEventManager))
 
 	// fail to execute store1 with mary
 	resp := exec(t, cache, checksum, "mary", store1, api, querier, 0x115070970)
@@ -599,9 +712,20 @@ func TestSudo(t *testing.T) {
 	info := MockInfoBin(t, "creator")
 
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	res, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 
 	// call sudo with same store
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -609,8 +733,17 @@ func TestSudo(t *testing.T) {
 	store.SetGasMeter(gasMeter2)
 	env = MockEnvBin(t)
 	msg = []byte(`{"steal_funds":{"recipient":"community-pool","amount":[{"amount":"700","denom":"gold"}]}}`)
-	res, _, err = Sudo(cache, checksum, env, msg, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err = Sudo(cache, checksum, env, msg, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
+
+	// make sure it does not uses EventManager
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 
 	// make sure it blindly followed orders
 	var result types.ContractResult
@@ -642,9 +775,20 @@ func TestDispatchSubmessage(t *testing.T) {
 	info := MockInfoBin(t, "creator")
 
 	msg := []byte(`{}`)
-	res, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
 
 	// dispatch a submessage
 	var id uint64 = 1234
@@ -664,8 +808,18 @@ func TestDispatchSubmessage(t *testing.T) {
 	igasMeter2 := GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	env = MockEnvBin(t)
-	res, _, err = Execute(cache, checksum, env, info, payloadMsg, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err = Execute(cache, checksum, env, info, payloadMsg, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
+
+	// make sure it does not uses EventManager
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
 
 	// make sure it blindly followed orders
 	var result types.ContractResult
@@ -695,9 +849,20 @@ func TestReplyAndQuery(t *testing.T) {
 	info := MockInfoBin(t, "creator")
 
 	msg := []byte(`{}`)
-	res, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var eventsByEventManager types.Events
+	err = eventsByEventManager.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(eventsByEventManager))
+
+	var attributesByEventManager types.EventAttributes
+	err = attributesByEventManager.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributesByEventManager))
 
 	var id uint64 = 1234
 	data := []byte("foobar")
@@ -724,9 +889,18 @@ func TestReplyAndQuery(t *testing.T) {
 	igasMeter2 := GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	env = MockEnvBin(t)
-	res, _, err = Reply(cache, checksum, env, replyBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err = Reply(cache, checksum, env, replyBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	err = eventsByEventManager.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(eventsByEventManager))
+
+	err = attributesByEventManager.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributesByEventManager))
 
 	// now query the state to see if it stored the data properly
 	badQuery := []byte(`{"sub_msg_result":{"id":7777}}`)
@@ -786,6 +960,10 @@ func createReflectContract(t *testing.T, cache Cache) []byte {
 	return createContract(t, cache, "./testdata/reflect.wasm")
 }
 
+func createEventsContract(t *testing.T, cache Cache) []byte {
+	return createContract(t, cache, "./testdata/events.wasm")
+}
+
 func createContract(t *testing.T, cache Cache, wasmFile string) []byte {
 	wasm, err := ioutil.ReadFile(wasmFile)
 	require.NoError(t, err)
@@ -800,7 +978,7 @@ func exec(t *testing.T, cache Cache, checksum []byte, signer types.HumanAddress,
 	igasMeter := GasMeter(gasMeter)
 	env := MockEnvBin(t)
 	info := MockInfoBin(t, signer)
-	res, cost, err := Execute(cache, checksum, env, info, []byte(`{"release":{}}`), &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, _, _, cost, err := Execute(cache, checksum, env, info, []byte(`{"release":{}}`), &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	assert.Equal(t, gasExpected, cost)
 
@@ -824,7 +1002,7 @@ func TestQuery(t *testing.T) {
 	env := MockEnvBin(t)
 	info := MockInfoBin(t, "creator")
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
-	_, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	_, _, _, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 
 	// invalid query
@@ -932,4 +1110,99 @@ func TestCustomReflectQuerier(t *testing.T) {
 	err = json.Unmarshal(qres.Ok, &response)
 	require.NoError(t, err)
 	require.Equal(t, "SMALL FRYS :)", response.Text)
+}
+
+func TestEventManager(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum := createEventsContract(t, cache)
+
+	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter1 := GasMeter(gasMeter1)
+	// instantiate it with this store
+	store := NewLookup(gasMeter1)
+	api := NewMockAPI()
+	balance := types.Coins{}
+	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, balance)
+	env := MockEnvBin(t)
+	info := MockInfoBin(t, "creator")
+	msg := []byte(`{}`)
+
+	start := time.Now()
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff := time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0xc586dd30), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
+	// issue events with EventManager
+	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter2 := GasMeter(gasMeter2)
+	store.SetGasMeter(gasMeter2)
+	info = MockInfoBin(t, "alice")
+	eventsStr := `[{"type":"ty1","attributes":[{"key":"k11","value":"v11"},{"key":"k12","value":"v12"}]},{"type":"ty2","attributes":[{"key":"k21","value":"v21"},{"key":"k22","value":"v22"}]}]`
+	msg2 := []byte(fmt.Sprintf(`{"events":{"events":%s}}`, eventsStr))
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = Execute(cache, checksum, env, info, msg2, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0x1d133cc00), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// check events and attributes
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+
+	var expectedEvents types.Events
+	err = expectedEvents.UnmarshalJSON([]byte(eventsStr))
+	require.NoError(t, err)
+
+	require.Equal(t, expectedEvents, events)
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
+	// issue attributes with EventManager
+	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter3 := GasMeter(gasMeter3)
+	store.SetGasMeter(gasMeter3)
+	info = MockInfoBin(t, "alice")
+	attributesStr := `[{"key":"alice","value":"42"},{"key":"bob","value":"101010"}]`
+	msg3 := []byte(fmt.Sprintf(`{"attributes":{"attributes":%s}}`, attributesStr))
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = Execute(cache, checksum, env, info, msg3, &igasMeter3, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0x13ba22790), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// check events and attributes
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+
+	var expectedAttributes types.EventAttributes
+	err = expectedAttributes.UnmarshalJSON([]byte(attributesStr))
+	require.NoError(t, err)
+	require.Equal(t, expectedAttributes, attributes)
 }
