@@ -1131,7 +1131,7 @@ func TestEventManager(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xc586dd30), cost)
+	assert.Equal(t, uint64(0xc5c6f370), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -1158,7 +1158,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x1d133cc00), cost)
+	assert.Equal(t, uint64(0x1d0d83e80), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
@@ -1188,7 +1188,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x13ba22790), cost)
+	assert.Equal(t, uint64(0x13d2bd4d0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
@@ -1202,5 +1202,157 @@ func TestEventManager(t *testing.T) {
 	var expectedAttributes types.EventAttributes
 	err = expectedAttributes.UnmarshalJSON([]byte(attributesStr))
 	require.NoError(t, err)
+	require.Equal(t, expectedAttributes, attributes)
+}
+
+func TestDynamicEventManager(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum := createEventsContract(t, cache)
+
+	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter1 := GasMeter(gasMeter1)
+
+	// instantiate it with this store
+	calleeStore := NewLookup(gasMeter1)
+
+	// make mocks
+	balance := types.Coins{}
+	calleeEnv := MockEnv()
+	calleeEnv.Contract.Address = "callee_address"
+	querier := DefaultQuerier(calleeEnv.Contract.Address, balance)
+	calleeEnvBin, err := json.Marshal(calleeEnv)
+	require.NoError(t, err)
+	info := MockInfoBin(t, "someone")
+
+	// make api mock with GetContractEnv
+	api := NewMockAPI()
+	mockGetContractEnv := func(addr string, inputSize uint64) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, uint64, error) {
+		if addr == calleeEnv.Contract.Address {
+			return calleeEnv, &cache, calleeStore, querier, GasMeter(NewMockGasMeter(TESTING_GAS_LIMIT)), checksum, 0, 0, nil
+		} else {
+			return Env{}, nil, nil, nil, nil, []byte{}, 0, 0, fmt.Errorf("unexpected address")
+		}
+	}
+	api.GetContractEnv = mockGetContractEnv
+
+	msg := []byte(`{}`)
+	start := time.Now()
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, calleeEnvBin, info, msg, &igasMeter1, calleeStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff := time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0xc86a2700), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
+	// init caller
+	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter2 := GasMeter(gasMeter2)
+	callerStore := NewLookup(gasMeter2)
+	callerEnv := MockEnv()
+	callerEnv.Contract.Address = "caller_address"
+	callerEnvBin, err := json.Marshal(callerEnv)
+	require.NoError(t, err)
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = Instantiate(cache, checksum, callerEnvBin, info, msg, &igasMeter2, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0xc86a2700), cost)
+
+	// make sure it does not uses EventManager
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
+	// test evant manager with dynamic call 1
+	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter3 := GasMeter(gasMeter3)
+	callerStore.SetGasMeter(gasMeter3)
+	eventsStr := `[{"type":"ty1","attributes":[{"key":"k11","value":"v11"},{"key":"k12","value":"v12"}]},{"type":"ty2","attributes":[{"key":"k21","value":"v21"},{"key":"k22","value":"v22"}]}]`
+	msg2 := []byte(fmt.Sprintf(`{"events_dyn":{"address":"%s","events":%s}}`, calleeEnv.Contract.Address, eventsStr))
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = Execute(cache, checksum, callerEnvBin, info, msg2, &igasMeter3, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0x3fa9ac970), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// check events and attributes
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(events))
+
+	var expectedEvents types.Events
+	err = expectedEvents.UnmarshalJSON([]byte(eventsStr))
+	require.NoError(t, err)
+
+	callstackAttr := types.EventAttribute{Key: "callstack", Value: "[\"caller_address\",\"callee_address\"]"}
+
+	// expected attribute represent call-stack info
+	eventByAttrs := types.Event{Type: "dynamiclink-[\"caller_address\",\"callee_address\"]", Attributes: types.EventAttributes{}}
+
+	// expected event generated from attributes in EventManager
+	eventByAttrs.Attributes = append(eventByAttrs.Attributes, callstackAttr)
+	// events are issues 2 times, via caller event manager and via callee event manager (spec of events contract)
+	expectedEvents = append(expectedEvents, eventByAttrs, expectedEvents[0], expectedEvents[1])
+	expectedEvents[0].Attributes = append(expectedEvents[0].Attributes, callstackAttr)
+	expectedEvents[1].Attributes = append(expectedEvents[1].Attributes, callstackAttr)
+	require.Equal(t, expectedEvents, events)
+
+	// check no attributes are issued by event manager
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
+	// test evant manager with dynamic call 2
+	gasMeter4 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter4 := GasMeter(gasMeter4)
+	callerStore.SetGasMeter(gasMeter4)
+	attributesStr := `[{"key":"alice","value":"42"},{"key":"bob","value":"101010"}]`
+	msg3 := []byte(fmt.Sprintf(`{"attributes_dyn":{"address":"%s","attributes":%s}}`, calleeEnv.Contract.Address, attributesStr))
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = Execute(cache, checksum, callerEnvBin, info, msg3, &igasMeter4, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0x27a932c00), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// check events and attributes
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(events))
+
+	var expectedAttributes types.EventAttributes
+	err = expectedAttributes.UnmarshalJSON([]byte(attributesStr))
+	require.NoError(t, err)
+
+	expectedEvent := types.Event{Type: "dynamiclink-[\"caller_address\",\"callee_address\"]", Attributes: append(expectedAttributes, callstackAttr)}
+	require.Equal(t, expectedEvent, events[0])
+
+	// attributes are issued by also callee (spec of events contract)
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(attributes))
 	require.Equal(t, expectedAttributes, attributes)
 }
