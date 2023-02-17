@@ -21,6 +21,18 @@ pub enum RustError {
         #[cfg(feature = "backtraces")]
         backtrace: Backtrace,
     },
+    #[error("Cannot encode events: {}", msg)]
+    InvalidEvents {
+        msg: String,
+        #[cfg(feature = "backtraces")]
+        backtrace: Backtrace,
+    },
+    #[error("Cannot encode attributes: {}", msg)]
+    InvalidAttributes {
+        msg: String,
+        #[cfg(feature = "backtraces")]
+        backtrace: Backtrace,
+    },
     #[error("Ran out of gas")]
     OutOfGas {
         #[cfg(feature = "backtraces")]
@@ -56,6 +68,22 @@ impl RustError {
 
     pub fn invalid_utf8<S: ToString>(msg: S) -> Self {
         RustError::InvalidUtf8 {
+            msg: msg.to_string(),
+            #[cfg(feature = "backtraces")]
+            backtrace: Backtrace::capture(),
+        }
+    }
+
+    pub fn invalid_events<S: ToString>(msg: S) -> Self {
+        RustError::InvalidEvents {
+            msg: msg.to_string(),
+            #[cfg(feature = "backtraces")]
+            backtrace: Backtrace::capture(),
+        }
+    }
+
+    pub fn invalid_attributes<S: ToString>(msg: S) -> Self {
+        RustError::InvalidAttributes {
             msg: msg.to_string(),
             #[cfg(feature = "backtraces")]
             backtrace: Backtrace::capture(),
@@ -251,6 +279,28 @@ mod tests {
         match error {
             RustError::InvalidUtf8 { msg, .. } => {
                 assert_eq!(msg, "invalid utf-8 sequence of 1 bytes from index 0");
+            }
+            _ => panic!("expect different error"),
+        }
+    }
+
+    #[test]
+    fn invalid_events_works() {
+        let error = RustError::invalid_events("my text");
+        match error {
+            RustError::InvalidEvents { msg, .. } => {
+                assert_eq!(msg, "my text")
+            }
+            _ => panic!("expect different error"),
+        }
+    }
+
+    #[test]
+    fn invalid_attributes_works() {
+        let error = RustError::invalid_attributes("my text");
+        match error {
+            RustError::InvalidAttributes { msg, .. } => {
+                assert_eq!(msg, "my text")
             }
             _ => panic!("expect different error"),
         }

@@ -37,17 +37,37 @@ func setupQueueContractWithData(t *testing.T, cache Cache, values ...int) queueD
 	msg := []byte(`{}`)
 
 	igasMeter1 := GasMeter(gasMeter1)
-	res, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, eventsData, attributesData, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var eventsByEventManager types.Events
+	err = eventsByEventManager.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(eventsByEventManager))
+
+	var attributesByEventManager types.EventAttributes
+	err = attributesByEventManager.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributesByEventManager))
 
 	for _, value := range values {
 		// push 17
 		var gasMeter2 GasMeter = NewMockGasMeter(TESTING_GAS_LIMIT)
 		push := []byte(fmt.Sprintf(`{"enqueue":{"value":%d}}`, value))
-		res, _, err = Execute(cache, checksum, env, info, push, &gasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+		res, eventsData, attributesData, _, err = Execute(cache, checksum, env, info, push, &gasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 		require.NoError(t, err)
 		requireOkResponse(t, res, 0)
+
+		// make sure it does not uses EventManager
+		err = eventsByEventManager.UnmarshalJSON(eventsData)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(eventsByEventManager))
+
+		err = attributesByEventManager.UnmarshalJSON(attributesData)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(attributesByEventManager))
 	}
 
 	return queueData{
