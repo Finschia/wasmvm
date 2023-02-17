@@ -759,8 +759,8 @@ func (vm *VM) IBCPacketTimeout(
 	return resp.Ok, gasUsed, nil
 }
 
-func (vm *VM) GetCache() *Cache {
-	return &vm.cache
+func (vm *VM) GetCache() Cache {
+	return vm.cache
 }
 
 // LibwasmvmVersion returns the version of the loaded library
