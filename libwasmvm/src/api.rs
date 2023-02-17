@@ -312,6 +312,19 @@ impl BackendApi for GoApi {
         };
         gas_info.cost += callee_instance.create_gas_report().used_internally;
 
+        // copy callee event manager's info to caller instance
+        if !callee_instance.env.is_storage_readonly() {
+            let callee_events =
+                match callee_instance.generate_events_as_from_dynamic_linked_callee() {
+                    Ok(v) => v,
+                    Err(e) => return (Err(BackendError::dynamic_link_err(e)), gas_info),
+                };
+            match caller_env.add_events(callee_events) {
+                Ok(v) => v,
+                Err(e) => return (Err(BackendError::dynamic_link_err(e)), gas_info),
+            }
+        };
+
         (call_ret, gas_info)
     }
 
