@@ -1,11 +1,14 @@
+use cosmwasm_std::to_vec;
 use cosmwasm_vm::{
     read_region_vals_from_env, write_value_to_env, Backend, BackendApi, BackendError,
     BackendResult, Checksum, Environment, FunctionMetadata, GasInfo, InstanceOptions, Querier,
     Storage, WasmerVal,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
-use wasmer::Module;
+use wasmer::{Module, Type};
 
 use crate::cache::{cache_t, to_cache};
 use crate::db::Db;
@@ -30,6 +33,11 @@ pub struct api_t {
     _private: [u8; 0],
 }
 
+#[derive(Serialize, Deserialize)]
+struct CalleeDict {
+    #[serde(flatten)]
+    inner: std::collections::HashMap<String, bool>,
+}
 // These functions should return GoError but because we don't trust them here, we treat the return value as i32
 // and then check it when converting to GoError manually
 #[repr(C)]
@@ -254,8 +262,46 @@ impl BackendApi for GoApi {
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
         callee_instance.env.set_serialized_env(&contract_env);
-        callee_instance.set_storage_readonly(caller_env.is_storage_readonly());
         gas_info.cost += instantiate_cost;
+        // set read-write permission to callee instance
+        let callee_info = FunctionMetadata {
+            module_name: String::from(&func_info.module_name),
+            name: "_callee_func_list".to_string(),
+            signature: ([Type::I32], [Type::I32]).into(),
+        };
+        let serialized_param = to_vec(&String::from(&func_info.name)).unwrap();
+        let param_region_ptr = write_value_to_env(&callee_instance.env, &serialized_param).unwrap();
+        let callee_ret = match callee_instance.call_function_strict(
+            &callee_info.signature,
+            &callee_info.name,
+            &[param_region_ptr],
+        ) {
+            Ok(ret) => {
+                let ret_datas = match read_region_vals_from_env(
+                    &callee_instance.env,
+                    &ret,
+                    MAX_REGIONS_LENGTH_OUTPUT,
+                    true,
+                ) {
+                    Ok(v) => v,
+                    Err(e) => return (Err(BackendError::dynamic_link_err(e)), gas_info),
+                };
+                Ok(ret_datas)
+            }
+            Err(e) => Err(BackendError::dynamic_link_err(e.to_string())),
+        }
+        .unwrap();
+        let callee_func_map: HashMap<String, bool> =
+            serde_json::from_slice(&callee_ret[0]).unwrap();
+        let is_read_write_permission = callee_func_map[&func_info.name];
+        if caller_env.is_storage_readonly() {
+            // if caller_env.is_storage_readonly() is true, funtion of dynamic linked caller has read-only permission
+            callee_instance.set_storage_readonly(caller_env.is_storage_readonly());
+        } else {
+            // if caller_env.is_storage_readonly() is false, funtion of dynamic linked caller has read-write permission
+            // then, read-only and read-write are determined by the function of callee
+            callee_instance.set_storage_readonly(is_read_write_permission);
+        }
 
         // check callstack
         match caller_env.try_pass_callstack(&mut callee_instance.env) {
