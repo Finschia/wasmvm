@@ -1,4 +1,3 @@
-use cosmwasm_std::to_vec;
 use cosmwasm_vm::{
     read_region_vals_from_env, write_value_to_env, Backend, BackendApi, BackendError,
     BackendResult, Checksum, Environment, FunctionMetadata, GasInfo, InstanceOptions, Querier,
@@ -266,15 +265,13 @@ impl BackendApi for GoApi {
         // set read-write permission to callee instance
         let callee_info = FunctionMetadata {
             module_name: String::from(&func_info.module_name),
-            name: "_callee_func_list".to_string(),
-            signature: ([Type::I32], [Type::I32]).into(),
+            name: "_list_callable_points".to_string(),
+            signature: ([], [Type::I32]).into(),
         };
-        let serialized_param = to_vec(&String::from(&func_info.name)).unwrap();
-        let param_region_ptr = write_value_to_env(&callee_instance.env, &serialized_param).unwrap();
         let callee_ret = match callee_instance.call_function_strict(
             &callee_info.signature,
             &callee_info.name,
-            &[param_region_ptr],
+            &[],
         ) {
             Ok(ret) => {
                 let ret_datas = match read_region_vals_from_env(
@@ -289,11 +286,27 @@ impl BackendApi for GoApi {
                 Ok(ret_datas)
             }
             Err(e) => Err(BackendError::dynamic_link_err(e.to_string())),
-        }
-        .unwrap();
-        let callee_func_map: HashMap<String, bool> =
-            serde_json::from_slice(&callee_ret[0]).unwrap();
-        let is_read_write_permission = callee_func_map[&func_info.name];
+        };
+        let callee_ret = match callee_ret {
+            Ok(ret) => ret,
+            Err(e) => return (Err(e), gas_info),
+        };
+        let callee_func_map: HashMap<String, bool> = match serde_json::from_slice(&callee_ret[0]) {
+            Ok(ret) => ret,
+            Err(e) => return (Err(BackendError::dynamic_link_err(e.to_string())), gas_info),
+        };
+        let is_read_write_permission = match callee_func_map.get(&func_info.name) {
+            Some(val) => *val,
+            None => {
+                return (
+                    Err(BackendError::dynamic_link_err(format!(
+                        "callee_func_map has not key:{}",
+                        &func_info.name
+                    ))),
+                    gas_info,
+                )
+            }
+        };
         if caller_env.is_storage_readonly() {
             // if caller_env.is_storage_readonly() is true, funtion of dynamic linked caller has read-only permission
             callee_instance.set_storage_readonly(caller_env.is_storage_readonly());
