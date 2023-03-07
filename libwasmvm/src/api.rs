@@ -262,6 +262,10 @@ impl BackendApi for GoApi {
         };
         callee_instance.env.set_serialized_env(&contract_env);
         gas_info.cost += instantiate_cost;
+        // set the callee_instance to read-only before calling _list_callable_points
+        // This is because it is possible to define read-write functions in the _list_callable_points function
+        // and change the storage
+        callee_instance.set_storage_readonly(true);
         // set read-write permission to callee instance
         let callee_info = FunctionMetadata {
             module_name: String::from(&func_info.module_name),
