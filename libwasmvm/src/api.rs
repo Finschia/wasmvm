@@ -313,7 +313,7 @@ impl BackendApi for GoApi {
         };
         if caller_env.is_storage_readonly() {
             // if caller_env.is_storage_readonly() is true, funtion of dynamic linked caller has read-only permission
-            callee_instance.set_storage_readonly(caller_env.is_storage_readonly());
+            callee_instance.set_storage_readonly(true);
         } else {
             // if caller_env.is_storage_readonly() is false, funtion of dynamic linked caller has read-write permission
             // then, read-only and read-write are determined by the function of callee
