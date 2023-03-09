@@ -313,6 +313,13 @@ impl BackendApi for GoApi {
         };
         if caller_env.is_storage_readonly() {
             // if caller_env.is_storage_readonly() is true, funtion of dynamic linked caller has read-only permission
+
+            if !is_read_write_permission {
+                // if is_read_write_permission is false, error occurs
+                // because it is not possible to inherit from read-only permission to read-write permission
+                let msg = "It is not possible to inherit from read-only permission to read-write permission";
+                return (Err(BackendError::dynamic_link_err(msg)), gas_info);
+            }
             callee_instance.set_storage_readonly(true);
         } else {
             // if caller_env.is_storage_readonly() is false, funtion of dynamic linked caller has read-write permission
