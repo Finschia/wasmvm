@@ -264,7 +264,7 @@ impl BackendApi for GoApi {
         gas_info.cost += instantiate_cost;
         // set read-write permission to callee instance
         let is_read_write_permission =
-            match get_read_write_permission(&mut callee_instance, &func_info) {
+            match get_read_write_permission(&mut callee_instance, func_info) {
                 Ok(permission) => permission,
                 Err(e) => return (Err(e), gas_info),
             };
