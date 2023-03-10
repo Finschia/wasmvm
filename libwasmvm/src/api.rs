@@ -263,26 +263,15 @@ impl BackendApi for GoApi {
         callee_instance.env.set_serialized_env(&contract_env);
         gas_info.cost += instantiate_cost;
         // set read-write permission to callee instance
-        let is_read_write_permission =
-            match get_read_write_permission(&mut callee_instance, func_info) {
-                Ok(permission) => permission,
-                Err(e) => return (Err(e), gas_info),
-            };
-        if caller_env.is_storage_readonly() {
-            // if caller_env.is_storage_readonly() is true, funtion of dynamic linked caller has read-only permission
-
-            if !is_read_write_permission {
-                // if is_read_write_permission is false, error occurs
-                // because it is not possible to inherit from read-only permission to read-write permission
-                let msg = "It is not possible to inherit from read-only permission to read-write permission";
-                return (Err(BackendError::dynamic_link_err(msg)), gas_info);
-            }
-            callee_instance.set_storage_readonly(true);
-        } else {
-            // if caller_env.is_storage_readonly() is false, funtion of dynamic linked caller has read-write permission
-            // then, read-only and read-write are determined by the function of callee
-            callee_instance.set_storage_readonly(is_read_write_permission);
-        }
+        let is_read_write_permission = match get_read_write_permission(
+            &mut callee_instance,
+            caller_env.is_storage_readonly(),
+            func_info,
+        ) {
+            Ok(permission) => permission,
+            Err(e) => return (Err(e), gas_info),
+        };
+        callee_instance.set_storage_readonly(is_read_write_permission);
 
         // check callstack
         match caller_env.try_pass_callstack(&mut callee_instance.env) {
@@ -413,6 +402,7 @@ fn into_backend(db: Db, api: GoApi, querier: GoQuerier) -> Backend<GoApi, GoStor
 
 fn get_read_write_permission(
     callee_instance: &mut Instance<GoApi, GoStorage, GoQuerier>,
+    is_caller_permission: bool,
     func_info: &FunctionMetadata,
 ) -> Result<bool, BackendError> {
     callee_instance.set_storage_readonly(true);
@@ -457,6 +447,13 @@ fn get_read_write_permission(
             )))
         }
     };
+
+    if is_caller_permission && !is_read_write_permission {
+        // error occurs because it is not possible to inherit from read-only permission to read-write permission
+        return Err(BackendError::dynamic_link_err(
+            "It is not possible to inherit from read-only permission to read-write permission",
+        ));
+    }
 
     Ok(is_read_write_permission)
 }
