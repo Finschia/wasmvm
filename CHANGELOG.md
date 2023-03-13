@@ -5,6 +5,9 @@
 
 The functional changes of this version same with v1.1.1-0.11.1, The only difference is that fix the import problem other service (like wasmd and finshia), because I think it seems to be problem to change the v1.1.1-0.11.1 tag commit.
 
+### Fixes
+* fix: wrong tag reference (v1.1.1-0.11.2) ([#95](https://github.com/line/wasmvm/pull/95))
+
 ## [[v1.1.1-0.11.1](https://github.com/line/wasmvm/compare/v1.1.1-0.11.0...v1.1.1-0.11.1)] - 2023-01-13
 
 ### Fixes
