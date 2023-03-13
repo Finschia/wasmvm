@@ -281,5 +281,5 @@ func TestGetMetrics(t *testing.T) {
 func TestLibwasmvmVersion(t *testing.T) {
 	version, err := LibwasmvmVersion()
 	require.NoError(t, err)
-	require.Equal(t, version, "1.1.1-0.11.2")
+	require.Equal(t, "1.1.1-0.11.2", version)
 }
