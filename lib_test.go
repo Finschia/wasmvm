@@ -277,3 +277,9 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
 	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 }
+
+func TestLibwasmvmVersion(t *testing.T) {
+	version, err := LibwasmvmVersion()
+	require.NoError(t, err)
+	require.Equal(t, version, "1.1.1-0.11.2")
+}
