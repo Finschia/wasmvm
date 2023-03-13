@@ -1,5 +1,5 @@
-//go:build linux && muslc
-// +build linux,muslc
+//go:build linux && muslc && !sys_wasmvm
+// +build linux,muslc,!sys_wasmvm
 
 package api
 

@@ -88,7 +88,7 @@ func TestStoreIterator(t *testing.T) {
 	callID2 := startCall()
 
 	store := dbm.NewMemDB()
-	var iter Iterator
+	var iter dbm.Iterator
 	var index uint64
 	var err error
 
@@ -122,7 +122,7 @@ func TestStoreIteratorHitsLimit(t *testing.T) {
 	callID := startCall()
 
 	store := dbm.NewMemDB()
-	var iter Iterator
+	var iter dbm.Iterator
 	var err error
 	const limit = 2
 
@@ -147,7 +147,7 @@ func TestRetrieveIterator(t *testing.T) {
 	callID2 := startCall()
 
 	store := dbm.NewMemDB()
-	var iter Iterator
+	var iter dbm.Iterator
 	var err error
 
 	iter, _ = store.Iterator(nil, nil)

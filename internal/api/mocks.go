@@ -26,6 +26,9 @@ func MockEnv() types.Env {
 			Time:    1578939743_987654321,
 			ChainID: "foobar",
 		},
+		Transaction: &types.TransactionInfo{
+			Index: 4,
+		},
 		Contract: types.ContractInfo{
 			Address: MOCK_CONTRACT_ADDR,
 		},
@@ -302,7 +305,7 @@ func (l Lookup) Delete(key []byte) {
 }
 
 // Iterator wraps the underlying DB's Iterator method panicing on error.
-func (l Lookup) Iterator(start, end []byte) Iterator {
+func (l Lookup) Iterator(start, end []byte) dbm.Iterator {
 	l.meter.ConsumeGas(RangePrice, "range")
 	iter, err := l.db.Iterator(start, end)
 	if err != nil {
@@ -313,7 +316,7 @@ func (l Lookup) Iterator(start, end []byte) Iterator {
 }
 
 // ReverseIterator wraps the underlying DB's ReverseIterator method panicing on error.
-func (l Lookup) ReverseIterator(start, end []byte) Iterator {
+func (l Lookup) ReverseIterator(start, end []byte) dbm.Iterator {
 	l.meter.ConsumeGas(RangePrice, "range")
 	iter, err := l.db.ReverseIterator(start, end)
 	if err != nil {

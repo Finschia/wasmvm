@@ -1,5 +1,5 @@
-//go:build linux && !muslc && arm64
-// +build linux,!muslc,arm64
+//go:build linux && !muslc && arm64 && !sys_wasmvm
+// +build linux,!muslc,arm64,!sys_wasmvm
 
 package api
 

@@ -39,7 +39,7 @@ build-rust: build-rust-release
 # In order to use "--features backtraces" here we need a Rust nightly toolchain, which we don't have by default
 build-rust-debug:
 	(cd libwasmvm && cargo build)
-	cp libwasmvm/target/debug/$(SHARED_LIB_SRC) api/$(SHARED_LIB_DST)
+	cp libwasmvm/target/debug/$(SHARED_LIB_SRC) internal/api/$(SHARED_LIB_DST)
 	make update-bindings
 
 # use release build to actually ship - smaller and much faster
@@ -48,7 +48,7 @@ build-rust-debug:
 # enable stripping through cargo (if that is desired).
 build-rust-release:
 	(cd libwasmvm && cargo build --release)
-	cp libwasmvm/target/release/$(SHARED_LIB_SRC) api/$(SHARED_LIB_DST)
+	cp libwasmvm/target/release/$(SHARED_LIB_SRC) internal/api/$(SHARED_LIB_DST)
 	make update-bindings
 	@ #this pulls out ELF symbols, 80% size reduction!
 
@@ -68,20 +68,20 @@ release-build-alpine:
 	rm -rf libwasmvm/target/release
 	# build the muslc *.a file
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd)/libwasmvm:/code $(BUILDERS_PREFIX)-alpine
-	cp libwasmvm/artifacts/libwasmvm_muslc.a api
-	cp libwasmvm/artifacts/libwasmvm_muslc.aarch64.a api
+	cp libwasmvm/artifacts/libwasmvm_muslc.a internal/api
+	cp libwasmvm/artifacts/libwasmvm_muslc.aarch64.a internal/api
 	make update-bindings
-	# try running go tests using this lib with muslc
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER) go build -tags muslc ./...
-	# Use package list mode to include all subdirectores. The -count=1 turns off caching.
-	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER) go test -ldflags "-linkmode=external -extldflags '-Wl,-z,muldefs -static'" -tags muslc -count=1 ./...
+#	# try running go tests using this lib with muslc
+#	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER) go build -tags muslc ./...
+#	# Use package list mode to include all subdirectores. The -count=1 turns off caching.
+#	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER) go test -tags muslc -count=1 ./...
 
 # Creates a release build in a containerized build environment of the shared library for glibc Linux (.so)
 release-build-linux:
 	rm -rf libwasmvm/target/release
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd)/libwasmvm:/code $(BUILDERS_PREFIX)-centos7
-	cp libwasmvm/artifacts/libwasmvm.x86_64.so api
-	cp libwasmvm/artifacts/libwasmvm.aarch64.so api
+	cp libwasmvm/artifacts/libwasmvm.x86_64.so internal/api
+	cp libwasmvm/artifacts/libwasmvm.aarch64.so internal/api
 	make update-bindings
 
 # Creates a release build in a containerized build environment of the shared library for macOS (.dylib)
@@ -89,21 +89,34 @@ release-build-macos:
 	rm -rf libwasmvm/target/x86_64-apple-darwin/release
 	rm -rf libwasmvm/target/aarch64-apple-darwin/release
 	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd)/libwasmvm:/code $(BUILDERS_PREFIX)-cross build_macos.sh
-	cp libwasmvm/artifacts/libwasmvm.dylib api
+	cp libwasmvm/artifacts/libwasmvm.dylib internal/api
+	make update-bindings
+
+# Creates a release build in a containerized build environment of the shared library for Windows (.dll)
+release-build-windows:
+	rm -rf libwasmvm/target/release
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd)/libwasmvm:/code $(BUILDERS_PREFIX)-cross build_windows.sh
+	cp libwasmvm/target/x86_64-pc-windows-gnu/release/wasmvm.dll internal/api
 	make update-bindings
 
 update-bindings:
-	# After we build libwasmvm, we have to copy the generated bindings for Go code to use.
-	# We cannot use symlinks as those are not reliably resolved by `go get` (https://github.com/CosmWasm/wasmvm/pull/235).
-	cp libwasmvm/bindings.h api
+# After we build libwasmvm, we have to copy the generated bindings for Go code to use.
+# We cannot use symlinks as those are not reliably resolved by `go get` (https://github.com/CosmWasm/wasmvm/pull/235).
+	cp libwasmvm/bindings.h internal/api
 
 release-build:
 	# Write like this because those must not run in parallel
 	make release-build-alpine
 	make release-build-linux
 	make release-build-macos
+	make release-build-windows
 
 test-alpine: release-build-alpine
+# try running go tests using this lib with muslc
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER) go build -tags muslc ./...
+# Use package list mode to include all subdirectores. The -count=1 turns off caching.
+	docker run --rm -u $(USER_ID):$(USER_GROUP) -v $(shell pwd):/mnt/testrun -w /mnt/testrun $(ALPINE_TESTER) go test -tags muslc -count=1 ./...
+
 	@# Build a Go demo binary called ./demo that links the static library from the previous step.
 	@# Whether the result is a statically linked or dynamically linked binary is decided by `go build`
 	@# and it's a bit unclear how this is decided. We use `file` to see what we got.
@@ -112,10 +125,10 @@ test-alpine: release-build-alpine
 
 	@# Run the demo binary on Alpine machines
 	@# See https://de.wikipedia.org/wiki/Alpine_Linux#Versionen for supported versions
-	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.15 ./demo ./api/testdata/hackatom.wasm
-	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.14 ./demo ./api/testdata/hackatom.wasm
-	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.13 ./demo ./api/testdata/hackatom.wasm
-	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.12 ./demo ./api/testdata/hackatom.wasm
+	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.15 ./demo ./testdata/hackatom.wasm
+	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.14 ./demo ./testdata/hackatom.wasm
+	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.13 ./demo ./testdata/hackatom.wasm
+	docker run --rm --read-only -v $(shell pwd):/mnt/testrun -w /mnt/testrun alpine:3.12 ./demo ./testdata/hackatom.wasm
 
 	@# Run binary locally if you are on Linux
-	@# ./demo ./api/testdata/hackatom.wasm
+	@# ./demo ./testdata/hackatom.wasm

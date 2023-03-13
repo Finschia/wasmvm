@@ -3,10 +3,12 @@ package api
 import (
 	"fmt"
 	"sync"
+
+	dbm "github.com/tendermint/tm-db"
 )
 
-// frame stores all Iterators for one contract
-type frame []Iterator
+// frame stores all Iterators for one contract call
+type frame []dbm.Iterator
 
 // iteratorFrames contains one frame for each contract call, indexed by contract call ID.
 var iteratorFrames = make(map[uint64]frame)
@@ -50,7 +52,7 @@ func endCall(callID uint64) {
 // storeIterator will add this to the end of the frame for the given ID and return a reference to it.
 // We start counting with 1, so the 0 value is flagged as an error. This means we must
 // remember to do idx-1 when retrieving
-func storeIterator(callID uint64, it Iterator, frameLenLimit int) (uint64, error) {
+func storeIterator(callID uint64, it dbm.Iterator, frameLenLimit int) (uint64, error) {
 	iteratorFramesMutex.Lock()
 	defer iteratorFramesMutex.Unlock()
 
@@ -69,7 +71,7 @@ func storeIterator(callID uint64, it Iterator, frameLenLimit int) (uint64, error
 // retrieveIterator will recover an iterator based on index. This ensures it will not be garbage collected.
 // We start counting with 1, in storeIterator so the 0 value is flagged as an error. This means we must
 // remember to do idx-1 when retrieving
-func retrieveIterator(callID uint64, index uint64) Iterator {
+func retrieveIterator(callID uint64, index uint64) dbm.Iterator {
 	iteratorFramesMutex.Lock()
 	defer iteratorFramesMutex.Unlock()
 	myFrame := iteratorFrames[callID]

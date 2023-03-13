@@ -5,13 +5,13 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/line/wasmvm/api"
+	"github.com/line/wasmvm/internal/api"
 	"github.com/line/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const IBC_TEST_CONTRACT = "./api/testdata/ibc_reflect.wasm"
+const IBC_TEST_CONTRACT = "./testdata/ibc_reflect.wasm"
 
 func TestIBC(t *testing.T) {
 	vm := withVM(t)
@@ -284,6 +284,7 @@ func TestAnalyzeCode(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, report.HasIBCEntryPoints)
 	require.Equal(t, "", report.RequiredFeatures)
+	require.Equal(t, "", report.RequiredCapabilities)
 
 	// Store IBC contract
 	wasm2, err := ioutil.ReadFile(IBC_TEST_CONTRACT)
@@ -295,6 +296,7 @@ func TestAnalyzeCode(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, report2.HasIBCEntryPoints)
 	require.Equal(t, "iterator,stargate", report2.RequiredFeatures)
+	require.Equal(t, "iterator,stargate", report2.RequiredCapabilities)
 }
 
 func TestIBCMsgGetChannel(t *testing.T) {

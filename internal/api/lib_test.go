@@ -61,7 +61,7 @@ func TestCreateAndGet(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 
-	wasm, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	checksum, err := Create(cache, wasm)
@@ -85,7 +85,7 @@ func TestPin(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 
-	wasm, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	checksum, err := Create(cache, wasm)
@@ -128,7 +128,7 @@ func TestUnpin(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 
-	wasm, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 
 	checksum, err := Create(cache, wasm)
@@ -173,7 +173,7 @@ func TestGetMetrics(t *testing.T) {
 	assert.Equal(t, &types.Metrics{}, metrics)
 
 	// Create contract
-	wasm, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 	checksum, err := Create(cache, wasm)
 	require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(0), metrics.HitsMemoryCache)
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 2
 	msg2 := []byte(`{"verifier": "fred", "beneficiary": "susi"}`)
@@ -214,7 +214,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(1), metrics.HitsMemoryCache)
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Pin
 	err = Pin(cache, checksum)
@@ -227,8 +227,8 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizePinnedMemoryCache, 0.18)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizePinnedMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 3
 	msg3 := []byte(`{"verifier": "fred", "beneficiary": "bert"}`)
@@ -243,8 +243,8 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizePinnedMemoryCache, 0.18)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizePinnedMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Unpin
 	err = Unpin(cache, checksum)
@@ -259,7 +259,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 
 	// Instantiate 4
 	msg4 := []byte(`{"verifier": "fred", "beneficiary": "jeff"}`)
@@ -275,7 +275,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
-	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
 }
 
 func TestInstantiate(t *testing.T) {
@@ -283,7 +283,7 @@ func TestInstantiate(t *testing.T) {
 	defer cleanup()
 
 	// create contract
-	wasm, err := ioutil.ReadFile("./testdata/hackatom.wasm")
+	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 	checksum, err := Create(cache, wasm)
 	require.NoError(t, err)
@@ -301,7 +301,7 @@ func TestInstantiate(t *testing.T) {
 	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x12e722d7c), cost)
+	assert.Equal(t, uint64(0x1432036ec), cost)
 
 	var result types.ContractResult
 	err = json.Unmarshal(res, &result)
@@ -343,7 +343,7 @@ func TestExecute(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x12e722d7c), cost)
+	assert.Equal(t, uint64(0x1432036ec), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -367,7 +367,7 @@ func TestExecute(t *testing.T) {
 	res, eventsData, attributesData, cost, err = Execute(cache, checksum, env, info, []byte(`{"release":{}}`), &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(0x21f7a66d0), cost)
+	assert.Equal(t, uint64(0x2335827f0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -427,7 +427,7 @@ func TestExecuteCpuLoop(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x12e722d7c), cost)
+	assert.Equal(t, uint64(0x1432036ec), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -639,7 +639,7 @@ func TestMultipleInstances(t *testing.T) {
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	// we now count wasm gas charges and db writes
-	assert.Equal(t, uint64(0x12c4f266c), cost)
+	assert.Equal(t, uint64(0x140fd2fdc), cost)
 
 	// make sure it does not uses EventManager
 	var eventsByEventManager types.Events
@@ -661,7 +661,7 @@ func TestMultipleInstances(t *testing.T) {
 	res, eventsData, attributesData, cost, err = Instantiate(cache, checksum, env, info, msg, &igasMeter2, store2, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x12d8b01cc), cost)
+	assert.Equal(t, uint64(0x142390b3c), cost)
 
 	// make sure it does not uses EventManager
 	err = eventsByEventManager.UnmarshalJSON(eventsData)
@@ -673,11 +673,11 @@ func TestMultipleInstances(t *testing.T) {
 	require.Equal(t, 0, len(attributesByEventManager))
 
 	// fail to execute store1 with mary
-	resp := exec(t, cache, checksum, "mary", store1, api, querier, 0x115070970)
+	resp := exec(t, cache, checksum, "mary", store1, api, querier, 0x129b512e0)
 	require.Equal(t, "Unauthorized", resp.Err)
 
 	// succeed to execute store1 with fred
-	resp = exec(t, cache, checksum, "fred", store1, api, querier, 0x21e7a0dd0)
+	resp = exec(t, cache, checksum, "fred", store1, api, querier, 0x23257cef0)
 	require.Equal(t, "", resp.Err)
 	require.Equal(t, 1, len(resp.Ok.Messages))
 	attributes := resp.Ok.Attributes
@@ -686,7 +686,7 @@ func TestMultipleInstances(t *testing.T) {
 	require.Equal(t, "bob", attributes[1].Value)
 
 	// succeed to execute store2 with mary
-	resp = exec(t, cache, checksum, "mary", store2, api, querier, 0x21efa3a50)
+	resp = exec(t, cache, checksum, "mary", store2, api, querier, 0x232d7fb70)
 	require.Equal(t, "", resp.Err)
 	require.Equal(t, 1, len(resp.Ok.Messages))
 	attributes = resp.Ok.Attributes
@@ -947,19 +947,19 @@ func requireQueryOk(t *testing.T, res []byte) []byte {
 }
 
 func createTestContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "./testdata/hackatom.wasm")
+	return createContract(t, cache, "../../testdata/hackatom.wasm")
 }
 
 func createQueueContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "./testdata/queue.wasm")
+	return createContract(t, cache, "../../testdata/queue.wasm")
 }
 
 func createReflectContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "./testdata/reflect.wasm")
+	return createContract(t, cache, "../../testdata/reflect.wasm")
 }
 
 func createEventsContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "./testdata/events.wasm")
+	return createContract(t, cache, "../../testdata/events.wasm")
 }
 
 func createContract(t *testing.T, cache Cache, wasmFile string) []byte {
@@ -1131,7 +1131,7 @@ func TestEventManager(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xc586dd30), cost)
+	assert.Equal(t, uint64(0xd9b4ba20), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -1158,7 +1158,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x1d133cc00), cost)
+	assert.Equal(t, uint64(0x1e5387610), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
@@ -1188,7 +1188,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x13ba22790), cost)
+	assert.Equal(t, uint64(0x14fd00480), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
