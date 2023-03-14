@@ -449,7 +449,7 @@ fn get_read_write_permission(
     };
 
     if is_caller_permission && !is_read_write_permission {
-        // error occurs because it is not possible to inherit from read-only permission to read-write permission
+        // An error occurs because read-only permission cannot be inherited from read-write permission
         return Err(BackendError::dynamic_link_err(
             "It is not possible to inherit from read-only permission to read-write permission",
         ));
