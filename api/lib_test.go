@@ -966,17 +966,13 @@ func createNumberContract(t *testing.T, cache Cache) []byte {
 	return createContract(t, cache, "./testdata/number.wasm")
 }
 
-
 func createIntermediateNumberContract(t *testing.T, cache Cache) []byte {
 	return createContract(t, cache, "./testdata/intermediate_number.wasm")
 }
 
-
-
 func createCallNumberContract(t *testing.T, cache Cache) []byte {
 	return createContract(t, cache, "./testdata/call_number.wasm")
 }
-
 
 func createContract(t *testing.T, cache Cache, wasmFile string) []byte {
 	wasm, err := ioutil.ReadFile(wasmFile)
@@ -1230,7 +1226,6 @@ type MockQuerier_read_write struct {
 
 var _ types.Querier = MockQuerier_read_write{}
 
-
 func (q MockQuerier_read_write) GasConsumed() uint64 {
 	return q.usedGas
 }
@@ -1239,7 +1234,7 @@ func DefaultQuerier_read_write(contractAddr string, coins types.Coins) Querier {
 	balances := map[string]types.Coins{
 		contractAddr: coins,
 	}
-	return MockQuerier_read_write {
+	return MockQuerier_read_write{
 		Bank:    NewBankQuerier(balances),
 		Custom:  NoCustom{},
 		usedGas: 0,
@@ -1268,13 +1263,13 @@ func (q MockQuerier_read_write) Query(request types.QueryRequest, _gasLimit uint
 }
 
 func TestDynamicReadWritePermission(t *testing.T) {
-cache, cleanup := withCache(t)
+	cache, cleanup := withCache(t)
 	defer cleanup()
 	checksum_number := createNumberContract(t, cache)
 	checksum_intermediate_number := createIntermediateNumberContract(t, cache)
 	checksum_call_number := createCallNumberContract(t, cache)
 
-	// init callee 
+	// init callee
 	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
 	igasMeter1 := GasMeter(gasMeter1)
 	calleeStore := NewLookup(gasMeter1)
@@ -1283,7 +1278,7 @@ cache, cleanup := withCache(t)
 	calleeEnvBin, err := json.Marshal(calleeEnv)
 	require.NoError(t, err)
 
-	// init intermediate 
+	// init intermediate
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
 	igasMeter2 := GasMeter(gasMeter2)
 	intermediateStore := NewLookup(gasMeter2)
@@ -1292,7 +1287,7 @@ cache, cleanup := withCache(t)
 	intermediateEnvBin, err := json.Marshal(intermediateEnv)
 	require.NoError(t, err)
 
-	// init caller 
+	// init caller
 	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
 	igasMeter3 := GasMeter(gasMeter3)
 	callerStore := NewLookup(gasMeter3)
@@ -1301,19 +1296,17 @@ cache, cleanup := withCache(t)
 	callerEnvBin, err := json.Marshal(callerEnv)
 	require.NoError(t, err)
 
-
 	// prepare querier
 	balance := types.Coins{}
 	info := MockInfoBin(t, "someone")
 	querier := DefaultQuerier_read_write(calleeEnv.Contract.Address, balance)
-
 
 	// make api mock with GetContractEnv
 	api := NewMockAPI()
 	mockGetContractEnv := func(addr string, inputSize uint64) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, uint64, error) {
 		if addr == calleeEnv.Contract.Address {
 			return calleeEnv, &cache, calleeStore, querier, GasMeter(NewMockGasMeter(TESTING_GAS_LIMIT)), checksum_number, 0, 0, nil
-		} else if  addr == intermediateEnv.Contract.Address {
+		} else if addr == intermediateEnv.Contract.Address {
 			return intermediateEnv, &cache, intermediateStore, querier, GasMeter(NewMockGasMeter(TESTING_GAS_LIMIT)), checksum_intermediate_number, 0, 0, nil
 		} else {
 			return Env{}, nil, nil, nil, nil, []byte{}, 0, 0, fmt.Errorf("unexpected address")
@@ -1324,14 +1317,13 @@ cache, cleanup := withCache(t)
 	// instantiate number contract
 	start := time.Now()
 	msg := []byte(`{"value":42}`)
-	res,_,_ ,cost, err := Instantiate(cache, checksum_number, calleeEnvBin, info, msg, &igasMeter1, calleeStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	res, _, _, cost, err := Instantiate(cache, checksum_number, calleeEnvBin, info, msg, &igasMeter1, calleeStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0xd50318f0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-
 
 	// instantiate intermediate_number contract
 	start = time.Now()
@@ -1342,7 +1334,6 @@ cache, cleanup := withCache(t)
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0xeb087500), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-
 
 	// instantiate call_number contract
 	start = time.Now()
@@ -1366,7 +1357,7 @@ cache, cleanup := withCache(t)
 	require.ErrorContains(t, err, "It is not possible to inherit from read-only permission to read-write permission")
 	assert.Equal(t, uint64(0x190fd80e0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-	
+
 	// succeed to execute when calling `sub`
 	gasMeter5 := NewMockGasMeter(TESTING_GAS_LIMIT)
 	igasMeter5 := GasMeter(gasMeter5)
@@ -1380,5 +1371,5 @@ cache, cleanup := withCache(t)
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0x52aad7fd0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-	
+
 }
