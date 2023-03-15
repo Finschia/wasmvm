@@ -1257,7 +1257,7 @@ func (q MockQuerier_read_write) Query(request types.QueryRequest, _gasLimit uint
 		return nil, types.UnsupportedRequest{"staking"}
 	}
 	if request.Wasm != nil {
-		// This value is set for use with TestDynamicReadWritePermission. 
+		// This value is set for use with TestDynamicReadWritePermission.
 		// 42 is meaningless.
 		return []byte(`{"value":42}`), nil
 	}
@@ -1364,7 +1364,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 
 	// succeed to execute when calling `sub`
 	// The intermediate_number contract is designed so that the `sub` function has read-write permission.
-    // The following test succeeds because the permissions are properly inherited.
+	// The following test succeeds because the permissions are properly inherited.
 	gasMeter5 := NewMockGasMeter(TESTING_GAS_LIMIT)
 	igasMeter5 := GasMeter(gasMeter5)
 	intermediateStore.SetGasMeter(gasMeter5)
