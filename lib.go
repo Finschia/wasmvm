@@ -759,6 +759,55 @@ func (vm *VM) IBCPacketTimeout(
 	return resp.Ok, gasUsed, nil
 }
 
+func (vm *VM) CallCallablePoint(
+	name []byte,
+	checksum Checksum,
+	isReadonly bool,
+	callstack []byte,
+	env types.Env,
+	args []byte,
+	store KVStore,
+	goapi GoAPI,
+	querier Querier,
+	gasMeter GasMeter,
+	gasLimit uint64,
+	deserCost types.UFraction,
+) ([]byte, types.Events, types.EventAttributes, uint64, error) {
+	envBin, err := json.Marshal(env)
+	if err != nil {
+		return nil, nil, nil, 0, err
+	}
+
+	data, eventsData, attributesData, gasUsed, err := api.CallCallablePoint(name, vm.cache, checksum, isReadonly, callstack, envBin, args, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	if err != nil {
+		return nil, nil, nil, gasUsed, err
+	}
+
+	gasForDeserializingEvents := deserCost.Mul(uint64(len(eventsData))).Floor()
+	if gasLimit < gasForDeserializingEvents+gasUsed {
+		return nil, nil, nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize events (%d bytes)", len(eventsData))
+	}
+	gasUsed += gasForDeserializingEvents
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	if err != nil {
+		return nil, nil, nil, gasUsed, err
+	}
+	gasForDeserializingAttrs := deserCost.Mul(uint64(len(attributesData))).Floor()
+
+	if gasLimit < gasForDeserializingAttrs+gasUsed {
+		return nil, nil, nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize attributes (%d bytes)", len(attributesData))
+	}
+	gasUsed += gasForDeserializingAttrs
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	if err != nil {
+		return nil, nil, nil, gasUsed, err
+	}
+
+	return data, events, attributes, gasUsed, nil
+}
+
 func (vm *VM) GetCache() *Cache {
 	return &vm.cache
 }

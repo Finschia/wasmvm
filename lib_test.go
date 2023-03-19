@@ -1,6 +1,7 @@
 package cosmwasm
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -218,7 +219,7 @@ func TestGetMetrics(t *testing.T) {
 	require.InEpsilon(t, 5665691, metrics.SizeMemoryCache, 0.18)
 }
 
-func TestEventManage(t *testing.T) {
+func TestEventManager(t *testing.T) {
 	vm := withVM(t)
 
 	// Create contract
@@ -276,4 +277,105 @@ func TestEventManage(t *testing.T) {
 
 	require.Equal(t, 0, len(eres2.Events))
 	require.Equal(t, []types.EventAttribute(expectedAttributes), eres2.Attributes)
+}
+
+func TestCallCallablePoint(t *testing.T) {
+	vm := withVM(t)
+
+	// Create contract
+	checksum := createTestContract(t, vm, EVENTS_TEST_CONTRACT)
+
+	deserCost := types.UFraction{1, 1}
+
+	// Instantiate
+	gasMeter1 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
+	// instantiate it with this store
+	store := api.NewLookup(gasMeter1)
+	goapi := api.NewMockAPI()
+	balance := types.Coins{}
+	querier := api.DefaultQuerier(api.MOCK_CONTRACT_ADDR, balance)
+
+	env := api.MockEnv()
+	info := api.MockInfo("creator", nil)
+	msg1 := []byte(`{}`)
+	ires, _, err := vm.Instantiate(checksum, env, info, msg1, store, *goapi, querier, gasMeter1, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(ires.Messages))
+
+	// Issue Events
+	gasMeter2 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
+	store.SetGasMeter(gasMeter2)
+	name := "add_events_dyn"
+	nameBin, err := json.Marshal(name)
+	require.NoError(t, err)
+	eventsIn := types.Events{
+		types.Event{
+			Type: "ty1",
+			Attributes: types.EventAttributes{
+				types.EventAttribute{
+					Key: "alice",
+					Value: "101010",
+				},
+				types.EventAttribute{
+					Key: "bob",
+					Value: "42",
+				},
+			},
+		},
+		types.Event{
+			Type: "ty2",
+			Attributes: types.EventAttributes{
+				types.EventAttribute{
+					Key: "ALICE",
+					Value: "42",
+				},
+				types.EventAttribute{
+					Key: "BOB",
+					Value: "101010",
+				},
+			},
+		},
+	}
+	eventsInBin, err := eventsIn.MarshalJSON()
+	require.NoError(t, err)
+	argsEv := [][]byte{eventsInBin}
+	argsEvBin, err := json.Marshal(argsEv)
+	require.NoError(t, err)
+	empty := []types.HumanAddress{}
+	emptyBin, err := json.Marshal(empty)
+	require.NoError(t, err)
+
+	cres1, events, attributes, _, err := vm.CallCallablePoint(nameBin, checksum, false, emptyBin, env, argsEvBin, store, *goapi, querier, gasMeter2, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`null`), cres1)
+	require.Equal(t, eventsIn, events)
+	require.Equal(t, 0, len(attributes))
+
+	// Issue Attributes
+	gasMeter3 := api.NewMockGasMeter(TESTING_GAS_LIMIT)
+	store.SetGasMeter(gasMeter2)
+	name = "add_attributes_dyn"
+	nameBin, err = json.Marshal(name)
+	require.NoError(t, err)
+	attrsIn := types.EventAttributes{
+		types.EventAttribute{
+			Key: "alice",
+			Value: "42",
+		},
+		types.EventAttribute{
+			Key: "bob",
+			Value: "101010",
+		},
+	}
+	attrsInBin, err := attrsIn.MarshalJSON()
+	require.NoError(t, err)
+	argsAt := [][]byte{attrsInBin}
+	argsAtBin, err := json.Marshal(argsAt)
+	require.NoError(t, err)
+
+	cres2, events, attributes, _, err := vm.CallCallablePoint(nameBin, checksum, false, emptyBin, env, argsAtBin, store, *goapi, querier, gasMeter3, TESTING_GAS_LIMIT, deserCost)
+	require.NoError(t, err)
+	require.Equal(t, []byte(`null`), cres2)
+	require.Equal(t, 0, len(events))
+	require.Equal(t, attrsIn, attributes)
 }
