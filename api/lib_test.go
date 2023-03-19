@@ -1143,7 +1143,7 @@ func TestEventManager(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xc586dd30), cost)
+	assert.Equal(t, uint64(0xc5c6f370), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -1170,7 +1170,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x1d133cc00), cost)
+	assert.Equal(t, uint64(0x1d0d83e80), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
@@ -1200,7 +1200,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x13ba22790), cost)
+	assert.Equal(t, uint64(0x13d2bd4d0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
@@ -1376,5 +1376,143 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	requireOkResponse(t, res, 0)
 	assert.Equal(t, uint64(0x535da85b0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
+}
 
+func TestCallCallablePoint(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum := createEventsContract(t, cache)
+
+	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter1 := GasMeter(gasMeter1)
+	// instantiate it with this store
+	store := NewLookup(gasMeter1)
+	api := NewMockAPI()
+	balance := types.Coins{}
+	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, balance)
+	env := MockEnvBin(t)
+	info := MockInfoBin(t, "creator")
+	msg := []byte(`{}`)
+
+	start := time.Now()
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff := time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0xc5c6f370), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
+	// issue events with EventManager
+	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter2 := GasMeter(gasMeter2)
+	store.SetGasMeter(gasMeter2)
+	name := "add_events_dyn"
+	nameBin, err := json.Marshal(name)
+	require.NoError(t, err)
+	eventsIn := types.Events{
+		types.Event{
+			Type: "ty1",
+			Attributes: types.EventAttributes{
+				types.EventAttribute{
+					Key: "alice",
+					Value: "101010",
+				},
+				types.EventAttribute{
+					Key: "bob",
+					Value: "42",
+				},
+			},
+		},
+		types.Event{
+			Type: "ty2",
+			Attributes: types.EventAttributes{
+				types.EventAttribute{
+					Key: "ALICE",
+					Value: "42",
+				},
+				types.EventAttribute{
+					Key: "BOB",
+					Value: "101010",
+				},
+			},
+		},
+	}
+	eventsInBin, err := eventsIn.MarshalJSON()
+	require.NoError(t, err)
+	argsEv := [][]byte{eventsInBin}
+	argsEvBin, err := json.Marshal(argsEv)
+	require.NoError(t, err)
+	empty := []types.HumanAddress{}
+	emptyBin, err := json.Marshal(empty)
+	require.NoError(t, err)
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, false, emptyBin, env, argsEvBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0x1766fb680), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+	require.Equal(t, []byte(`null`), res)
+
+	// check events and attributes
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+
+	require.Equal(t, eventsIn, events)
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(attributes))
+
+	// issue attributes with EventManager
+	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter3 := GasMeter(gasMeter3)
+	store.SetGasMeter(gasMeter3)
+	name = "add_attributes_dyn"
+	nameBin, err = json.Marshal(name)
+	require.NoError(t, err)
+	attrsIn := types.EventAttributes{
+		types.EventAttribute{
+			Key: "alice",
+			Value: "42",
+		},
+		types.EventAttribute{
+			Key: "bob",
+			Value: "101010",
+		},
+	}
+	attrsInBin, err := attrsIn.MarshalJSON()
+	require.NoError(t, err)
+	argsAt := [][]byte{attrsInBin}
+	argsAtBin, err := json.Marshal(argsAt)
+	require.NoError(t, err)
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, false, emptyBin, env, argsAtBin, &igasMeter3, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0xd753e6c0), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+	require.Equal(t, []byte(`null`), res)
+
+	// check events and attributes
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(events))
+
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+
+	require.Equal(t, attrsIn, attributes)
 }
