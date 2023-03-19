@@ -313,11 +313,11 @@ func TestCallCallablePoint(t *testing.T) {
 			Type: "ty1",
 			Attributes: types.EventAttributes{
 				types.EventAttribute{
-					Key: "alice",
+					Key:   "alice",
 					Value: "101010",
 				},
 				types.EventAttribute{
-					Key: "bob",
+					Key:   "bob",
 					Value: "42",
 				},
 			},
@@ -326,11 +326,11 @@ func TestCallCallablePoint(t *testing.T) {
 			Type: "ty2",
 			Attributes: types.EventAttributes{
 				types.EventAttribute{
-					Key: "ALICE",
+					Key:   "ALICE",
 					Value: "42",
 				},
 				types.EventAttribute{
-					Key: "BOB",
+					Key:   "BOB",
 					Value: "101010",
 				},
 			},
@@ -359,11 +359,11 @@ func TestCallCallablePoint(t *testing.T) {
 	require.NoError(t, err)
 	attrsIn := types.EventAttributes{
 		types.EventAttribute{
-			Key: "alice",
+			Key:   "alice",
 			Value: "42",
 		},
 		types.EventAttribute{
-			Key: "bob",
+			Key:   "bob",
 			Value: "101010",
 		},
 	}

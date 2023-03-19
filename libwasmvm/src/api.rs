@@ -31,6 +31,8 @@ const MAX_REGIONS_LENGTH_OUTPUT: usize = 64 * MI;
 pub struct api_t {
     _private: [u8; 0],
 }
+
+// TODO: will be removed after solving cosmwasm#273
 // This contains property about the function of callee
 #[derive(Serialize, Deserialize)]
 struct CalleeProperty {
@@ -150,6 +152,7 @@ impl BackendApi for GoApi {
         (result, gas_info)
     }
 
+    // TODO: will be removed after solving cosmwasm#273
     fn contract_call<A, S, Q>(
         &self,
         caller_env: &Environment<A, S, Q>,
@@ -330,6 +333,7 @@ impl BackendApi for GoApi {
         (call_ret, gas_info)
     }
 
+    // TODO: will be removed after solving cosmwasm#273
     fn get_wasmer_module(&self, contract_addr: &str) -> BackendResult<Module> {
         let cache_t_null_ptr: *mut cache_t = std::ptr::null_mut();
         let mut error_msg = UnmanagedVector::default();
@@ -399,6 +403,7 @@ fn into_backend(db: Db, api: GoApi, querier: GoQuerier) -> Backend<GoApi, GoStor
     }
 }
 
+// TODO: will be removed after solving cosmwasm#273
 fn get_read_write_permission(
     callee_instance: &mut Instance<GoApi, GoStorage, GoQuerier>,
     is_caller_permission: bool,
