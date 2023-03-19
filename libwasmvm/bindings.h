@@ -504,6 +504,23 @@ struct UnmanagedVector ibc_packet_timeout(struct cache_t *cache,
                                           struct UnmanagedVector *attributes,
                                           struct UnmanagedVector *error_msg);
 
+struct UnmanagedVector call_callable_point(struct ByteSliceView name,
+                                           struct cache_t *cache,
+                                           struct ByteSliceView checksum,
+                                           bool is_readonly,
+                                           struct ByteSliceView callstack,
+                                           struct ByteSliceView env,
+                                           struct ByteSliceView args,
+                                           struct Db db,
+                                           struct GoApi api,
+                                           struct GoQuerier querier,
+                                           uint64_t gas_limit,
+                                           bool print_debug,
+                                           uint64_t *gas_used,
+                                           struct UnmanagedVector *events,
+                                           struct UnmanagedVector *attributes,
+                                           struct UnmanagedVector *error_msg);
+
 struct UnmanagedVector new_unmanaged_vector(bool nil, const uint8_t *ptr, uintptr_t length);
 
 void destroy_unmanaged_vector(struct UnmanagedVector v);

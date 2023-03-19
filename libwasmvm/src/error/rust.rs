@@ -55,6 +55,18 @@ pub enum RustError {
         #[cfg(feature = "backtraces")]
         backtrace: Backtrace,
     },
+    #[error("Error during serialize or deserialize: {}", msg)]
+    SerdeErr {
+        msg: String,
+        #[cfg(feature = "backtraces")]
+        backtrace: Backtrace,
+    },
+    #[error("Error during dynamic link: {}", msg)]
+    DynamicLinkErr {
+        msg: String,
+        #[cfg(feature = "backtraces")]
+        backtrace: Backtrace,
+    },
 }
 
 impl RustError {
@@ -119,6 +131,22 @@ impl RustError {
             backtrace: Backtrace::capture(),
         }
     }
+
+    pub fn serde_err<S: ToString>(msg: S) -> Self {
+        RustError::SerdeErr {
+            msg: msg.to_string(),
+            #[cfg(feature = "backtraces")]
+            backtrace: Backtrace::capture(),
+        }
+    }
+
+    pub fn dynamic_link_err<S: ToString>(msg: S) -> Self {
+        RustError::DynamicLinkErr {
+            msg: msg.to_string(),
+            #[cfg(feature = "backtraces")]
+            backtrace: Backtrace::capture(),
+        }
+    }
 }
 
 impl From<VmError> for RustError {
@@ -139,6 +167,12 @@ impl From<std::str::Utf8Error> for RustError {
 impl From<std::string::FromUtf8Error> for RustError {
     fn from(source: std::string::FromUtf8Error) -> Self {
         RustError::invalid_utf8(source)
+    }
+}
+
+impl From<serde_json::Error> for RustError {
+    fn from(source: serde_json::Error) -> Self {
+        RustError::serde_err(source)
     }
 }
 
@@ -350,6 +384,30 @@ mod tests {
         }
     }
 
+    #[test]
+    fn dynamic_link_err_works() {
+        let original_msg = "foo bar 42";
+        let error = RustError::dynamic_link_err(original_msg);
+        match error {
+            RustError::DynamicLinkErr { msg, .. } => {
+                assert_eq!(msg, original_msg);
+            }
+            _ => panic!("expect different error"),
+        }
+    }
+
+    #[test]
+    fn serde_err_works() {
+        let original_msg = "foo bar 42";
+        let error = RustError::serde_err(original_msg);
+        match error {
+            RustError::SerdeErr { msg, .. } => {
+                assert_eq!(msg, original_msg);
+            }
+            _ => panic!("expect different error"),
+        }
+    }
+
     // Tests of `impl From<X> for RustError` converters
 
     #[test]
@@ -373,6 +431,20 @@ mod tests {
         match error {
             RustError::InvalidUtf8 { msg, .. } => {
                 assert_eq!(msg, "invalid utf-8 sequence of 3 bytes from index 6")
+            }
+            _ => panic!("expect different error"),
+        }
+    }
+
+    #[test]
+    fn from_serde_json_error_works() {
+        let error: RustError = serde_json::from_slice::<String>(b"{}").unwrap_err().into();
+        match error {
+            RustError::SerdeErr { msg, .. } => {
+                assert_eq!(
+                    msg,
+                    "invalid type: map, expected a string at line 1 column 0"
+                )
             }
             _ => panic!("expect different error"),
         }
