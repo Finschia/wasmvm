@@ -656,6 +656,26 @@ func CallCallablePoint(
 	return copyAndDestroyUnmanagedVector(res), copyAndDestroyUnmanagedVector(events), copyAndDestroyUnmanagedVector(attributes), uint64(gasUsed), nil
 }
 
+// returns: result, systemerr
+//
+//	result: serialized Option<String> which None means true, Some(e) means false and the reason is e.
+func ValidateDynamicLinkInterface(
+	cache Cache,
+	checksum []byte,
+	expectedInterface []byte,
+) ([]byte, error) {
+	cs := makeView(checksum)
+	defer runtime.KeepAlive(checksum)
+	ei := makeView(expectedInterface)
+	defer runtime.KeepAlive(expectedInterface)
+	errmsg := newUnmanagedVector(nil)
+	res, err := C.validate_interface(cache.ptr, cs, ei, &errmsg)
+	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
+		return nil, errorWithMessage(err, errmsg)
+	}
+	return copyAndDestroyUnmanagedVector(res), nil
+}
+
 /**** To error module ***/
 
 func errorWithMessage(err error, b C.UnmanagedVector) error {
