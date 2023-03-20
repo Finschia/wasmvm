@@ -57,6 +57,7 @@ pub struct GoApi_vtable {
         *mut UnmanagedVector, // error message output
         *mut u64,
     ) -> i32,
+    // will be removed after solving #273
     pub get_contract_env: extern "C" fn(
         *const api_t,
         U8SliceView,
@@ -69,6 +70,26 @@ pub struct GoApi_vtable {
         *mut UnmanagedVector, // error message output
         *mut u64,
         *mut u64,
+    ) -> i32,
+    pub call_callable_point: extern "C" fn(
+        *const api_t,
+        U8SliceView,          // input: address
+        U8SliceView,          // input: name of callable point
+        U8SliceView,          // input: args
+        bool,                 // input: is readonly
+        U8SliceView,          // input: callstack
+        u64,                  // input: gas limit
+        *mut UnmanagedVector, // output: returned data bytes
+        *mut UnmanagedVector, // output: error message
+        *mut u64,             // output: gas used
+    ) -> i32,
+    pub validate_interface: extern "C" fn(
+        *const api_t,
+        U8SliceView,          // input: address
+        U8SliceView,          // input: expected interface
+        *mut UnmanagedVector, // output: result serialized Option<String>, None: true, Some(e): false and e is the reason
+        *mut UnmanagedVector, // output: error message
+        *mut u64,             // output: gas used
     ) -> i32,
 }
 
@@ -393,6 +414,109 @@ impl BackendApi for GoApi {
 
         (Ok(module), gas_info)
     }
+
+    fn call_callable_point(
+        &self,
+        contract_addr: &str,
+        name: &str,
+        args: &[u8],
+        is_readonly: bool,
+        callstack: &[u8],
+        gas_limit: u64,
+    ) -> BackendResult<Vec<u8>> {
+        let mut error_msg = UnmanagedVector::default();
+        let mut result = UnmanagedVector::default();
+        let mut used_gas = 0_u64;
+        let name_binary = match serde_json::to_vec(name) {
+            Ok(v) => v,
+            Err(e) => {
+                return (
+                    Err(BackendError::dynamic_link_err(format!(
+                        "Error during serializing callable point's name to call: {}",
+                        e
+                    ))),
+                    GasInfo::with_cost(0),
+                )
+            }
+        };
+        let go_result: GoError = (self.vtable.call_callable_point)(
+            self.state,
+            U8SliceView::new(Some(contract_addr.as_bytes())),
+            U8SliceView::new(Some(&name_binary)),
+            U8SliceView::new(Some(args)),
+            is_readonly,
+            U8SliceView::new(Some(callstack)),
+            gas_limit,
+            &mut result as *mut UnmanagedVector,
+            &mut error_msg as *mut UnmanagedVector,
+            &mut used_gas as *mut u64,
+        )
+        .into();
+        let result = result.consume();
+        let gas_info = GasInfo::with_cost(used_gas);
+        let default = || {
+            format!(
+                "Failed to call callable point {} of {}",
+                name, contract_addr,
+            )
+        };
+        unsafe {
+            if let Err(err) = go_result.into_result(error_msg, default) {
+                return (
+                    Err(BackendError::dynamic_link_err(format!(
+                        r#"Error during calling callable point "{}" of contract "{}": {}"#,
+                        name, contract_addr, err
+                    ))),
+                    gas_info,
+                );
+            }
+        }
+
+        let result = result
+            .ok_or_else(|| BackendError::unknown("Unset result"))
+            .map(|data| data.to_vec());
+        (result, gas_info)
+    }
+
+    // returns serialized Option<String>.
+    // `None` if the interface is valid, otherwise returns `Some<err>`
+    // where `err` is why it is invalid.
+    fn validate_dynamic_link_interface(
+        &self,
+        contract_addr: &str,
+        expected_interface: &[u8],
+    ) -> BackendResult<Vec<u8>> {
+        let mut error_msg = UnmanagedVector::default();
+        let mut result = UnmanagedVector::default();
+        let mut used_gas = 0_u64;
+        let go_result: GoError = (self.vtable.validate_interface)(
+            self.state,
+            U8SliceView::new(Some(contract_addr.as_bytes())),
+            U8SliceView::new(Some(expected_interface)),
+            &mut result as *mut UnmanagedVector,
+            &mut error_msg as *mut UnmanagedVector,
+            &mut used_gas as *mut u64,
+        )
+        .into();
+        let result = result.consume();
+        let gas_info = GasInfo::with_cost(used_gas);
+        let default = || {
+            format!(
+                "Failed to validate dynamic link interface of {}",
+                contract_addr,
+            )
+        };
+        unsafe {
+            if let Err(err) = go_result.into_result(error_msg, default) {
+                return (Err(err), gas_info);
+            }
+        };
+
+        let result = result
+            .ok_or_else(|| BackendError::unknown("Unset result"))
+            .map(|data| data.to_vec());
+        (result, gas_info)
+    }
 }
 
 fn into_backend(db: Db, api: GoApi, querier: GoQuerier) -> Backend<GoApi, GoStorage, GoQuerier> {
@@ -566,12 +690,44 @@ mod tests {
         1
     }
 
+    #[no_mangle]
+    extern "C" fn mock_call_callable_point(
+        _api: *const api_t,
+        _addr: U8SliceView,
+        _name: U8SliceView,
+        _args: U8SliceView,
+        _is_readonly: bool,
+        _callstack: U8SliceView,
+        _gas_limit: u64,
+        _result: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        // ok
+        0
+    }
+
+    #[no_mangle]
+    extern "C" fn mock_validate_interface(
+        _api: *const api_t,
+        _addr: U8SliceView,
+        _expected_interface: U8SliceView,
+        _result: *mut UnmanagedVector,
+        _err: *mut UnmanagedVector,
+        _gas_used: *mut u64,
+    ) -> i32 {
+        // ok
+        0
+    }
+
     #[test]
     fn test_canonical_address() {
         let mock_go_api_vtable = GoApi_vtable {
             humanize_address: mock_address,
             canonicalize_address: mock_address,
             get_contract_env: mock_get_contract_env_with_none_outputs,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -590,6 +746,8 @@ mod tests {
             humanize_address: mock_address,
             canonicalize_address: mock_address_panic,
             get_contract_env: mock_get_contract_env_with_none_outputs,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -609,6 +767,8 @@ mod tests {
             humanize_address: mock_address,
             canonicalize_address: mock_address_with_none_output,
             get_contract_env: mock_get_contract_env_with_none_outputs,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -627,6 +787,8 @@ mod tests {
             humanize_address: mock_address,
             canonicalize_address: mock_address,
             get_contract_env: mock_get_contract_env_with_none_outputs,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -645,6 +807,8 @@ mod tests {
             humanize_address: mock_address_panic,
             canonicalize_address: mock_address,
             get_contract_env: mock_get_contract_env_with_none_outputs,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -663,6 +827,8 @@ mod tests {
             humanize_address: mock_address_with_none_output,
             canonicalize_address: mock_address,
             get_contract_env: mock_get_contract_env_with_none_outputs,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -681,6 +847,8 @@ mod tests {
             humanize_address: mock_address,
             canonicalize_address: mock_address,
             get_contract_env: mock_get_contract_env_panic,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -700,6 +868,8 @@ mod tests {
             humanize_address: mock_address,
             canonicalize_address: mock_address,
             get_contract_env: mock_get_contract_env_with_checksum,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {
@@ -719,6 +889,8 @@ mod tests {
             humanize_address: mock_address,
             canonicalize_address: mock_address,
             get_contract_env: mock_get_contract_env_with_none_outputs,
+            call_callable_point: mock_call_callable_point,
+            validate_interface: mock_validate_interface,
         };
 
         let mock_go_api = GoApi {

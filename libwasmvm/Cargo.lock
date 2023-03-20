@@ -202,7 +202,7 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 [[package]]
 name = "cosmwasm-crypto"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm/?rev=6774545efbdbfc24ee2130994e104a1b6924b710#6774545efbdbfc24ee2130994e104a1b6924b710"
+source = "git+https://github.com/loloicci/line-cosmwasm?branch=rust-go-pointer-api#042ed18fe8bd913f342e9a804dcb208897b9374b"
 dependencies = [
  "digest",
  "ed25519-zebra",
@@ -215,7 +215,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-derive"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm/?rev=6774545efbdbfc24ee2130994e104a1b6924b710#6774545efbdbfc24ee2130994e104a1b6924b710"
+source = "git+https://github.com/loloicci/line-cosmwasm?branch=rust-go-pointer-api#042ed18fe8bd913f342e9a804dcb208897b9374b"
 dependencies = [
  "convert_case",
  "proc-macro-error",
@@ -229,7 +229,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-std"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm/?rev=6774545efbdbfc24ee2130994e104a1b6924b710#6774545efbdbfc24ee2130994e104a1b6924b710"
+source = "git+https://github.com/loloicci/line-cosmwasm?branch=rust-go-pointer-api#042ed18fe8bd913f342e9a804dcb208897b9374b"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -247,7 +247,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-vm"
 version = "1.0.0-0.6.0"
-source = "git+https://github.com/line/cosmwasm/?rev=6774545efbdbfc24ee2130994e104a1b6924b710#6774545efbdbfc24ee2130994e104a1b6924b710"
+source = "git+https://github.com/loloicci/line-cosmwasm?branch=rust-go-pointer-api#042ed18fe8bd913f342e9a804dcb208897b9374b"
 dependencies = [
  "clru",
  "cosmwasm-crypto",

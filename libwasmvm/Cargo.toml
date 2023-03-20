@@ -30,8 +30,8 @@ default = []
 backtraces = []
 
 [dependencies]
-cosmwasm-std = { git = "https://github.com/line/cosmwasm/", rev = "6774545efbdbfc24ee2130994e104a1b6924b710", features = ["iterator","staking","stargate"] }
-cosmwasm-vm = { git = "https://github.com/line/cosmwasm/", rev = "6774545efbdbfc24ee2130994e104a1b6924b710", features = ["iterator","staking","stargate"] }
+cosmwasm-std = { git = "https://github.com/loloicci/line-cosmwasm", branch = "rust-go-pointer-api", features = ["iterator","staking","stargate"] }
+cosmwasm-vm = { git = "https://github.com/loloicci/line-cosmwasm", branch = "rust-go-pointer-api", features = ["iterator","staking","stargate"] }
 errno = "0.2"
 serde_json = "1.0"
 thiserror = "1.0"
