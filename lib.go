@@ -808,6 +808,16 @@ func (vm *VM) CallCallablePoint(
 	return data, events, attributes, gasUsed, nil
 }
 
+// returns: result, systemerr
+//
+//	result: serialized Option<String> which None means true, Some(e) means false and the reason is e.
+func (vm *VM) ValidateDynamicLinkInterface(
+	checksum Checksum,
+	expectedInterface []byte,
+) ([]byte, error) {
+	return api.ValidateDynamicLinkInterface(vm.cache, checksum, expectedInterface)
+}
+
 func (vm *VM) GetCache() *Cache {
 	return &vm.cache
 }
