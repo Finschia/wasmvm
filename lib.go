@@ -113,13 +113,13 @@ func (vm *VM) GetMetrics() (*types.Metrics, error) {
 	return api.GetMetrics(vm.cache)
 }
 
-func validateGasForDeserialization(gasLimit uint64, deserCost types.UFraction, gasUsed *uint64, data []byte) (uint64, error) {
+func costGasForDeserialization(gasLimit uint64, deserCost types.UFraction, gasUsed *uint64, data []byte) error {
 	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
 	if gasLimit < gasForDeserialization+*gasUsed {
-		return *gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+		return fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
 	}
 	*gasUsed += gasForDeserialization
-	return *gasUsed, nil
+	return nil
 }
 
 // Instantiate will create a new contract based on the given Checksum.
@@ -155,7 +155,7 @@ func (vm *VM) Instantiate(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -166,7 +166,7 @@ func (vm *VM) Instantiate(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -177,7 +177,7 @@ func (vm *VM) Instantiate(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -226,7 +226,7 @@ func (vm *VM) Execute(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -237,7 +237,7 @@ func (vm *VM) Execute(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -248,7 +248,7 @@ func (vm *VM) Execute(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -289,7 +289,7 @@ func (vm *VM) Query(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -331,7 +331,7 @@ func (vm *VM) Migrate(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -342,7 +342,7 @@ func (vm *VM) Migrate(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -353,7 +353,7 @@ func (vm *VM) Migrate(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -397,7 +397,7 @@ func (vm *VM) Sudo(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -408,7 +408,7 @@ func (vm *VM) Sudo(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -419,7 +419,7 @@ func (vm *VM) Sudo(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -465,7 +465,7 @@ func (vm *VM) Reply(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -476,7 +476,7 @@ func (vm *VM) Reply(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -487,7 +487,7 @@ func (vm *VM) Reply(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -531,7 +531,7 @@ func (vm *VM) IBCChannelOpen(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -573,7 +573,7 @@ func (vm *VM) IBCChannelConnect(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -584,7 +584,7 @@ func (vm *VM) IBCChannelConnect(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -595,7 +595,7 @@ func (vm *VM) IBCChannelConnect(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -639,7 +639,7 @@ func (vm *VM) IBCChannelClose(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -650,7 +650,7 @@ func (vm *VM) IBCChannelClose(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -661,7 +661,7 @@ func (vm *VM) IBCChannelClose(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -705,7 +705,7 @@ func (vm *VM) IBCPacketReceive(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -713,7 +713,7 @@ func (vm *VM) IBCPacketReceive(
 	var resp types.IBCReceiveResult
 	err = json.Unmarshal(data, &resp)
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -724,7 +724,7 @@ func (vm *VM) IBCPacketReceive(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -769,7 +769,7 @@ func (vm *VM) IBCPacketAck(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -780,7 +780,7 @@ func (vm *VM) IBCPacketAck(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -791,7 +791,7 @@ func (vm *VM) IBCPacketAck(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -836,7 +836,7 @@ func (vm *VM) IBCPacketTimeout(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -847,7 +847,7 @@ func (vm *VM) IBCPacketTimeout(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
@@ -858,7 +858,7 @@ func (vm *VM) IBCPacketTimeout(
 		return nil, gasUsed, err
 	}
 
-	gasUsed, err = validateGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
