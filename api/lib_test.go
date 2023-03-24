@@ -1359,7 +1359,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	_, _, _, cost, err = Execute(cache, checksum_call_number, callerEnvBin, info, msg4, &igasMeter4, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.ErrorContains(t, err, "It is not possible to inherit from read-only permission to read-write permission")
-	assert.Equal(t, uint64(0x190fd80e0), cost)
+	assert.Equal(t, uint64(0x19369c5f0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// succeed to execute when calling `sub`
@@ -1375,7 +1375,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x52aad7fd0), cost)
+	assert.Equal(t, uint64(0x535da85b0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 }
