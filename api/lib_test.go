@@ -1320,7 +1320,6 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	start := time.Now()
 	msg := []byte(`{"value":42}`)
 	res, _, _, cost, err := Instantiate(cache, checksum_number, calleeEnvBin, info, msg, &igasMeter1, calleeStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
