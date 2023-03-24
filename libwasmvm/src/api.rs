@@ -31,9 +31,9 @@ const MAX_REGIONS_LENGTH_OUTPUT: usize = 64 * MI;
 pub struct api_t {
     _private: [u8; 0],
 }
-// This contains information about the function of callee
+// This contains property about the function of callee
 #[derive(Serialize, Deserialize)]
-struct CalleeInfo {
+struct CalleeProperty {
     is_read_only: bool,
 }
 // These functions should return GoError but because we don't trust them here, we treat the return value as i32
@@ -407,7 +407,7 @@ fn get_read_write_permission(
     callee_instance.set_storage_readonly(true);
     let callee_info = FunctionMetadata {
         module_name: String::from(&func_info.module_name),
-        name: "_list_callable_points".to_string(),
+        name: "_get_callable_points_properties".to_string(),
         signature: ([], [Type::I32]).into(),
     };
     let callee_ret = match callee_instance.call_function_strict(
@@ -433,11 +433,11 @@ fn get_read_write_permission(
         Ok(ret) => ret,
         Err(e) => return Err(e),
     };
-    let callee_func_map: HashMap<String, CalleeInfo> = match serde_json::from_slice(&callee_ret[0])
-    {
-        Ok(ret) => ret,
-        Err(e) => return Err(BackendError::dynamic_link_err(e.to_string())),
-    };
+    let callee_func_map: HashMap<String, CalleeProperty> =
+        match serde_json::from_slice(&callee_ret[0]) {
+            Ok(ret) => ret,
+            Err(e) => return Err(BackendError::dynamic_link_err(e.to_string())),
+        };
     let callee_info = match callee_func_map.get(&func_info.name) {
         Some(val) => val,
         None => {
