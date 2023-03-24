@@ -31,11 +31,10 @@ const MAX_REGIONS_LENGTH_OUTPUT: usize = 64 * MI;
 pub struct api_t {
     _private: [u8; 0],
 }
-
+// This contains information about the function of callee
 #[derive(Serialize, Deserialize)]
-struct CalleeDict {
-    #[serde(flatten)]
-    inner: std::collections::HashMap<String, bool>,
+struct CalleeInfo {
+    is_read_only: bool,
 }
 // These functions should return GoError but because we don't trust them here, we treat the return value as i32
 // and then check it when converting to GoError manually
@@ -434,12 +433,13 @@ fn get_read_write_permission(
         Ok(ret) => ret,
         Err(e) => return Err(e),
     };
-    let callee_func_map: HashMap<String, bool> = match serde_json::from_slice(&callee_ret[0]) {
+    let callee_func_map: HashMap<String, CalleeInfo> = match serde_json::from_slice(&callee_ret[0])
+    {
         Ok(ret) => ret,
         Err(e) => return Err(BackendError::dynamic_link_err(e.to_string())),
     };
-    let is_read_write_permission = match callee_func_map.get(&func_info.name) {
-        Some(val) => *val,
+    let callee_info = match callee_func_map.get(&func_info.name) {
+        Some(val) => val,
         None => {
             return Err(BackendError::dynamic_link_err(format!(
                 "callee_func_map has not key:{}",
@@ -448,14 +448,14 @@ fn get_read_write_permission(
         }
     };
 
-    if is_caller_permission && !is_read_write_permission {
+    if is_caller_permission && !callee_info.is_read_only {
         // An error occurs because read-only permission cannot be inherited from read-write permission
         return Err(BackendError::dynamic_link_err(
             "It is not possible to inherit from read-only permission to read-write permission",
         ));
     }
 
-    Ok(is_read_write_permission)
+    Ok(callee_info.is_read_only)
 }
 
 #[cfg(test)]
