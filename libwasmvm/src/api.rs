@@ -438,7 +438,7 @@ fn get_read_write_permission(
             Ok(ret) => ret,
             Err(e) => return Err(BackendError::dynamic_link_err(e.to_string())),
         };
-    let callee_info = match callee_func_map.get(&func_info.name) {
+    let callee_property = match callee_func_map.get(&func_info.name) {
         Some(val) => val,
         None => {
             return Err(BackendError::dynamic_link_err(format!(
@@ -448,14 +448,14 @@ fn get_read_write_permission(
         }
     };
 
-    if is_caller_permission && !callee_info.is_read_only {
+    if is_caller_permission && !callee_property.is_read_only {
         // An error occurs because read-only permission cannot be inherited from read-write permission
         return Err(BackendError::dynamic_link_err(
             "It is not possible to inherit from read-only permission to read-write permission",
         ));
     }
 
-    Ok(callee_info.is_read_only)
+    Ok(callee_property.is_read_only)
 }
 
 #[cfg(test)]
