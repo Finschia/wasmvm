@@ -1,11 +1,13 @@
 use cosmwasm_vm::{
     read_region_vals_from_env, write_value_to_env, Backend, BackendApi, BackendError,
-    BackendResult, Checksum, Environment, FunctionMetadata, GasInfo, InstanceOptions, Querier,
-    Storage, WasmerVal,
+    BackendResult, Checksum, Environment, FunctionMetadata, GasInfo, Instance, InstanceOptions,
+    Querier, Storage, WasmerVal,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
-use wasmer::Module;
+use wasmer::{Module, Type};
 
 use crate::cache::{cache_t, to_cache};
 use crate::db::Db;
@@ -29,7 +31,11 @@ const MAX_REGIONS_LENGTH_OUTPUT: usize = 64 * MI;
 pub struct api_t {
     _private: [u8; 0],
 }
-
+// This contains property about the function of callee
+#[derive(Serialize, Deserialize)]
+struct CalleeProperty {
+    is_read_only: bool,
+}
 // These functions should return GoError but because we don't trust them here, we treat the return value as i32
 // and then check it when converting to GoError manually
 #[repr(C)]
@@ -254,8 +260,17 @@ impl BackendApi for GoApi {
             Err(e) => return (Err(BackendError::unknown(e.to_string())), gas_info),
         };
         callee_instance.env.set_serialized_env(&contract_env);
-        callee_instance.set_storage_readonly(caller_env.is_storage_readonly());
         gas_info.cost += instantiate_cost;
+        // set read-write permission to callee instance
+        let is_read_write_permission = match get_read_write_permission(
+            &mut callee_instance,
+            caller_env.is_storage_readonly(),
+            func_info,
+        ) {
+            Ok(permission) => permission,
+            Err(e) => return (Err(e), gas_info),
+        };
+        callee_instance.set_storage_readonly(is_read_write_permission);
 
         // check callstack
         match caller_env.try_pass_callstack(&mut callee_instance.env) {
@@ -382,6 +397,65 @@ fn into_backend(db: Db, api: GoApi, querier: GoQuerier) -> Backend<GoApi, GoStor
         storage: GoStorage::new(db),
         querier,
     }
+}
+
+fn get_read_write_permission(
+    callee_instance: &mut Instance<GoApi, GoStorage, GoQuerier>,
+    is_caller_permission: bool,
+    func_info: &FunctionMetadata,
+) -> Result<bool, BackendError> {
+    callee_instance.set_storage_readonly(true);
+    let callee_info = FunctionMetadata {
+        module_name: String::from(&func_info.module_name),
+        name: "_get_callable_points_properties".to_string(),
+        signature: ([], [Type::I32]).into(),
+    };
+    let callee_ret = match callee_instance.call_function_strict(
+        &callee_info.signature,
+        &callee_info.name,
+        &[],
+    ) {
+        Ok(ret) => {
+            let ret_datas = match read_region_vals_from_env(
+                &callee_instance.env,
+                &ret,
+                MAX_REGIONS_LENGTH_OUTPUT,
+                true,
+            ) {
+                Ok(v) => v,
+                Err(e) => return Err(BackendError::dynamic_link_err(e)),
+            };
+            Ok(ret_datas)
+        }
+        Err(e) => Err(BackendError::dynamic_link_err(e.to_string())),
+    };
+    let callee_ret = match callee_ret {
+        Ok(ret) => ret,
+        Err(e) => return Err(e),
+    };
+    let callee_func_map: HashMap<String, CalleeProperty> =
+        match serde_json::from_slice(&callee_ret[0]) {
+            Ok(ret) => ret,
+            Err(e) => return Err(BackendError::dynamic_link_err(e.to_string())),
+        };
+    let callee_property = match callee_func_map.get(&func_info.name) {
+        Some(val) => val,
+        None => {
+            return Err(BackendError::dynamic_link_err(format!(
+                "callee_func_map has not key:{}",
+                &func_info.name
+            )))
+        }
+    };
+
+    if is_caller_permission && !callee_property.is_read_only {
+        // An error occurs because read-only permission cannot be inherited from read-write permission
+        return Err(BackendError::dynamic_link_err(
+            "It is not possible to inherit from read-only permission to read-write permission",
+        ));
+    }
+
+    Ok(callee_property.is_read_only)
 }
 
 #[cfg(test)]

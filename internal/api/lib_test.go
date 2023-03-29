@@ -962,6 +962,18 @@ func createEventsContract(t *testing.T, cache Cache) []byte {
 	return createContract(t, cache, "../../testdata/events.wasm")
 }
 
+func createNumberContract(t *testing.T, cache Cache) []byte {
+	return createContract(t, cache, "./testdata/number.wasm")
+}
+
+func createIntermediateNumberContract(t *testing.T, cache Cache) []byte {
+	return createContract(t, cache, "./testdata/intermediate_number.wasm")
+}
+
+func createCallNumberContract(t *testing.T, cache Cache) []byte {
+	return createContract(t, cache, "./testdata/call_number.wasm")
+}
+
 func createContract(t *testing.T, cache Cache, wasmFile string) []byte {
 	wasm, err := ioutil.ReadFile(wasmFile)
 	require.NoError(t, err)
@@ -1203,4 +1215,166 @@ func TestEventManager(t *testing.T) {
 	err = expectedAttributes.UnmarshalJSON([]byte(attributesStr))
 	require.NoError(t, err)
 	require.Equal(t, expectedAttributes, attributes)
+}
+
+// This is used for TestDynamicReadWritePermission
+type MockQuerier_read_write struct {
+	Bank    BankQuerier
+	Custom  CustomQuerier
+	usedGas uint64
+}
+
+var _ types.Querier = MockQuerier_read_write{}
+
+func (q MockQuerier_read_write) GasConsumed() uint64 {
+	return q.usedGas
+}
+
+func DefaultQuerier_read_write(contractAddr string, coins types.Coins) Querier {
+	balances := map[string]types.Coins{
+		contractAddr: coins,
+	}
+	return MockQuerier_read_write{
+		Bank:    NewBankQuerier(balances),
+		Custom:  NoCustom{},
+		usedGas: 0,
+	}
+}
+
+func (q MockQuerier_read_write) Query(request types.QueryRequest, _gasLimit uint64) ([]byte, error) {
+	marshaled, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	q.usedGas += uint64(len(marshaled))
+	if request.Bank != nil {
+		return q.Bank.Query(request.Bank)
+	}
+	if request.Custom != nil {
+		return q.Custom.Query(request.Custom)
+	}
+	if request.Staking != nil {
+		return nil, types.UnsupportedRequest{"staking"}
+	}
+	if request.Wasm != nil {
+		// This value is set for use with TestDynamicReadWritePermission.
+		// 42 is meaningless.
+		return []byte(`{"value":42}`), nil
+	}
+	return nil, types.Unknown{}
+}
+
+func TestDynamicReadWritePermission(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum_number := createNumberContract(t, cache)
+	checksum_intermediate_number := createIntermediateNumberContract(t, cache)
+	checksum_call_number := createCallNumberContract(t, cache)
+
+	// init callee
+	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter1 := GasMeter(gasMeter1)
+	calleeStore := NewLookup(gasMeter1)
+	calleeEnv := MockEnv()
+	calleeEnv.Contract.Address = "number_addr"
+	calleeEnvBin, err := json.Marshal(calleeEnv)
+	require.NoError(t, err)
+
+	// init intermediate
+	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter2 := GasMeter(gasMeter2)
+	intermediateStore := NewLookup(gasMeter2)
+	intermediateEnv := MockEnv()
+	intermediateEnv.Contract.Address = "intermediate_number_addr"
+	intermediateEnvBin, err := json.Marshal(intermediateEnv)
+	require.NoError(t, err)
+
+	// init caller
+	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter3 := GasMeter(gasMeter3)
+	callerStore := NewLookup(gasMeter3)
+	callerEnv := MockEnv()
+	callerEnv.Contract.Address = "call_number_address"
+	callerEnvBin, err := json.Marshal(callerEnv)
+	require.NoError(t, err)
+
+	// prepare querier
+	balance := types.Coins{}
+	info := MockInfoBin(t, "someone")
+	querier := DefaultQuerier_read_write(calleeEnv.Contract.Address, balance)
+
+	// make api mock with GetContractEnv
+	api := NewMockAPI()
+	mockGetContractEnv := func(addr string, inputSize uint64) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, uint64, error) {
+		if addr == calleeEnv.Contract.Address {
+			return calleeEnv, &cache, calleeStore, querier, GasMeter(NewMockGasMeter(TESTING_GAS_LIMIT)), checksum_number, 0, 0, nil
+		} else if addr == intermediateEnv.Contract.Address {
+			return intermediateEnv, &cache, intermediateStore, querier, GasMeter(NewMockGasMeter(TESTING_GAS_LIMIT)), checksum_intermediate_number, 0, 0, nil
+		} else {
+			return Env{}, nil, nil, nil, nil, []byte{}, 0, 0, fmt.Errorf("unexpected address")
+		}
+	}
+	api.GetContractEnv = mockGetContractEnv
+
+	// instantiate number contract
+	start := time.Now()
+	msg := []byte(`{"value":42}`)
+	res, _, _, cost, err := Instantiate(cache, checksum_number, calleeEnvBin, info, msg, &igasMeter1, calleeStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff := time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0xd50318f0), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// instantiate intermediate_number contract
+	start = time.Now()
+	msg = []byte(`{"callee_addr":"number_addr"}`)
+	res, _, _, cost, err = Instantiate(cache, checksum_intermediate_number, intermediateEnvBin, info, msg, &igasMeter2, intermediateStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0xeb087500), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// instantiate call_number contract
+	start = time.Now()
+	msg = []byte(`{"callee_addr":"intermediate_number_addr"}`)
+	res, _, _, cost, err = Instantiate(cache, checksum_call_number, callerEnvBin, info, msg, &igasMeter3, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0xedd72560), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// fail to execute when calling `add`
+	// The intermediate_number contract is intentionally designed so that the `add` function has read-only permission.
+	// The following test fails because of inheritance from read-only permission to read-write permission.
+	gasMeter4 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter4 := GasMeter(gasMeter4)
+	intermediateStore.SetGasMeter(gasMeter4)
+	msg4 := []byte(`{"add":{"value":5}}`)
+
+	start = time.Now()
+	_, _, _, cost, err = Execute(cache, checksum_call_number, callerEnvBin, info, msg4, &igasMeter4, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.ErrorContains(t, err, "It is not possible to inherit from read-only permission to read-write permission")
+	assert.Equal(t, uint64(0x19369c5f0), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// succeed to execute when calling `sub`
+	// The intermediate_number contract is designed so that the `sub` function has read-write permission.
+	// The following test succeeds because the permissions are properly inherited.
+	gasMeter5 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter5 := GasMeter(gasMeter5)
+	intermediateStore.SetGasMeter(gasMeter5)
+	msg5 := []byte(`{"sub":{"value":5}}`)
+
+	start = time.Now()
+	_, _, _, cost, err = Execute(cache, checksum_call_number, callerEnvBin, info, msg5, &igasMeter5, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+	assert.Equal(t, uint64(0x535da85b0), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
 }
