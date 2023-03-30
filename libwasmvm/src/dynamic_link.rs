@@ -106,15 +106,15 @@ fn do_call_callable_point(
     attributes: Option<&mut UnmanagedVector>,
     gas_used: Option<&mut u64>,
 ) -> Result<Option<Vec<u8>>, Error> {
-    let name: String = from_slice(&name.read().ok_or_else(|| Error::unset_arg("name"))?)?;
-    let args: Vec<Binary> = from_slice(&args.read().ok_or_else(|| Error::unset_arg("args"))?)?;
+    let name: String = from_slice(name.read().ok_or_else(|| Error::unset_arg("name"))?)?;
+    let args: Vec<Binary> = from_slice(args.read().ok_or_else(|| Error::unset_arg("args"))?)?;
     let gas_used = gas_used.ok_or_else(|| Error::empty_arg(GAS_USED_ARG))?;
     let checksum: Checksum = checksum
         .read()
         .ok_or_else(|| Error::unset_arg(CHECKSUM_ARG))?
         .try_into()?;
     let callstack: Vec<Addr> = from_slice(
-        &callstack
+        callstack
             .read()
             .ok_or_else(|| Error::unset_arg("callstack"))?,
     )?;
@@ -129,14 +129,14 @@ fn do_call_callable_point(
     // make instance
     let mut instance = cache.get_instance(&checksum, backend, options)?;
     instance.env.set_serialized_env(env_u8);
-    instance.env.set_dynamic_callstack(callstack.clone())?;
+    instance.env.set_dynamic_callstack(callstack)?;
 
     // set permission
     set_callee_permission(&mut instance, &name, is_readonly)?;
 
     // prepare inputs
     let mut arg_ptrs = Vec::<WasmerVal>::with_capacity(args.len() + 1);
-    let env_ptr = write_value_to_env(&instance.env, &env_u8)?;
+    let env_ptr = write_value_to_env(&instance.env, env_u8)?;
     arg_ptrs.push(env_ptr);
     for arg in args {
         let ptr = write_value_to_env(&instance.env, arg.as_slice())?;
