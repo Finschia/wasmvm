@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
@@ -7,6 +8,7 @@ use cosmwasm_vm::{
     InstanceOptions, WasmerVal,
 };
 use serde_json::{from_slice, to_vec};
+use wasmer::{ExportType, FunctionType};
 
 use crate::api::GoApi;
 use crate::args::{CACHE_ARG, CHECKSUM_ARG, GAS_USED_ARG};
@@ -183,4 +185,77 @@ fn do_call_callable_point(
     *gas_used = instance.create_gas_report().used_internally;
 
     Ok(call_result)
+}
+
+// returning value: serialized `Option<String>`
+//                    `None`   : true
+//                    `Some(e)`: false and `e` is the reason
+#[no_mangle]
+pub extern "C" fn validate_interface(
+    cache: *mut cache_t,
+    checksum: ByteSliceView,
+    expected_interface: ByteSliceView,
+    error_msg: Option<&mut UnmanagedVector>,
+) -> UnmanagedVector {
+    let r = match to_cache(cache) {
+        Some(c) => catch_unwind(AssertUnwindSafe(move || {
+            do_validate_interface(c, checksum, expected_interface)
+        }))
+        .unwrap_or_else(|_| Err(Error::panic())),
+        None => Err(Error::unset_arg(CACHE_ARG)),
+    };
+    let option_data = handle_c_error_default(r, error_msg);
+    let data = match to_vec(&option_data) {
+        Ok(v) => v,
+        // Unexpected
+        Err(_) => Vec::<u8>::new(),
+    };
+    UnmanagedVector::new(Some(data))
+}
+
+// returning `Option<Sting>`: `None` if true, `Some(e)` if false and `e` is the reason
+fn do_validate_interface(
+    cache: &mut Cache<GoApi, GoStorage, GoQuerier>,
+    checksum: ByteSliceView,
+    expected_interface: ByteSliceView,
+) -> Result<Option<String>, Error> {
+    let checksum: Checksum = checksum
+        .read()
+        .ok_or_else(|| Error::unset_arg(CHECKSUM_ARG))?
+        .try_into()?;
+    let expected_interface: Vec<ExportType<FunctionType>> = from_slice(
+        expected_interface
+            .read()
+            .ok_or_else(|| Error::unset_arg("expected_interface"))?,
+    )?;
+    let module = cache.get_module(&checksum)?;
+
+    let mut exported_fns: HashMap<String, FunctionType> = HashMap::new();
+    for f in module.exports().functions() {
+        exported_fns.insert(f.name().to_string(), f.ty().clone());
+    }
+
+    // No gas fee for comparison now
+    let mut err_msg = "The following functions are not implemented: ".to_string();
+    let mut is_err = false;
+    for expected_fn in expected_interface.iter() {
+        // if not expected
+        if !exported_fns
+            .get(expected_fn.name())
+            .map_or(false, |t| t == expected_fn.ty())
+        {
+            if is_err {
+                err_msg.push_str(", ");
+            };
+            err_msg.push_str(&format!("{}: {}", expected_fn.name(), expected_fn.ty()));
+            is_err = true;
+        }
+    }
+
+    if is_err {
+        Ok(Some(err_msg))
+    } else {
+        // as expected
+        Ok(None)
+    }
 }

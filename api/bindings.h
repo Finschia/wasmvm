@@ -521,6 +521,11 @@ struct UnmanagedVector call_callable_point(struct ByteSliceView name,
                                            struct UnmanagedVector *attributes,
                                            struct UnmanagedVector *error_msg);
 
+struct UnmanagedVector validate_interface(struct cache_t *cache,
+                                          struct ByteSliceView checksum,
+                                          struct ByteSliceView expected_interface,
+                                          struct UnmanagedVector *error_msg);
+
 struct UnmanagedVector new_unmanaged_vector(bool nil, const uint8_t *ptr, uintptr_t length);
 
 void destroy_unmanaged_vector(struct UnmanagedVector v);
