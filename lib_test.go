@@ -386,17 +386,21 @@ func TestValidateDynamicLinkInterafce(t *testing.T) {
 	// Create contract
 	checksum := createTestContract(t, vm, EVENTS_TEST_CONTRACT)
 
-	correctInterface := []byte(`[{"name":"add_event_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_events_dyn","ty":{"params":["I32","I32"],"results":[]}},{"name":"add_attribute_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_attributes_dyn","ty":{"params":["I32","I32"],"results":[]}}]`)
-	res, err := vm.ValidateDynamicLinkInterface(checksum, correctInterface)
-	require.NoError(t, err)
-	require.Equal(t, []byte(`null`), res)
+	t.Run("valid interface", func(t *testing.T) {
+		correctInterface := []byte(`[{"name":"add_event_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_events_dyn","ty":{"params":["I32","I32"],"results":[]}},{"name":"add_attribute_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_attributes_dyn","ty":{"params":["I32","I32"],"results":[]}}]`)
+		res, err := vm.ValidateDynamicLinkInterface(checksum, correctInterface)
+		require.NoError(t, err)
+		assert.Equal(t, []byte(`null`), res)
+	})
 
-	wrongInterface := []byte(`[{"name":"add_event","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_events","ty":{"params":["I32","I32"],"results":[]}},{"name":"add_attribute","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_attributes","ty":{"params":["I32","I32"],"results":[]}}]`)
-	res, err = vm.ValidateDynamicLinkInterface(checksum, wrongInterface)
-	require.NoError(t, err)
-	require.Contains(t, string(res), `following functions are not implemented`)
-	require.Contains(t, string(res), `add_event`)
-	require.Contains(t, string(res), `add_events`)
-	require.Contains(t, string(res), `add_attribute`)
-	require.Contains(t, string(res), `add_attributes`)
+	t.Run("invalid interface", func(t *testing.T) {
+		wrongInterface := []byte(`[{"name":"add_event","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_events","ty":{"params":["I32","I32"],"results":[]}},{"name":"add_attribute","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_attributes","ty":{"params":["I32","I32"],"results":[]}}]`)
+		res, err := vm.ValidateDynamicLinkInterface(checksum, wrongInterface)
+		require.NoError(t, err)
+		assert.Contains(t, string(res), `following functions are not implemented`)
+		assert.Contains(t, string(res), `add_event`)
+		assert.Contains(t, string(res), `add_events`)
+		assert.Contains(t, string(res), `add_attribute`)
+		assert.Contains(t, string(res), `add_attributes`)
+	})
 }
