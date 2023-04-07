@@ -107,9 +107,21 @@ fn do_call_callable_point(
     events: Option<&mut UnmanagedVector>,
     attributes: Option<&mut UnmanagedVector>,
     gas_used: Option<&mut u64>,
-) -> Result<Option<Vec<u8>>, Error> {
-    let name: String = from_slice(name.read().ok_or_else(|| Error::unset_arg("name"))?)?;
-    let args: Vec<Binary> = from_slice(args.read().ok_or_else(|| Error::unset_arg("args"))?)?;
+) -> Result<Option<Binary>, Error> {
+    let name: String =
+        from_slice(name.read().ok_or_else(|| Error::unset_arg("name"))?).map_err(|e| {
+            Error::serde_err(format!(
+                "Error during deserializing callable point's `name` to call: {}",
+                e
+            ))
+        })?;
+    let args: Vec<Binary> = from_slice(args.read().ok_or_else(|| Error::unset_arg("args"))?)
+        .map_err(|e| {
+            Error::serde_err(format!(
+                "Error during deserializing `args` for the callable point: {}",
+                e
+            ))
+        })?;
     let gas_used = gas_used.ok_or_else(|| Error::empty_arg(GAS_USED_ARG))?;
     let checksum: Checksum = checksum
         .read()
@@ -119,7 +131,13 @@ fn do_call_callable_point(
         callstack
             .read()
             .ok_or_else(|| Error::unset_arg("callstack"))?,
-    )?;
+    )
+    .map_err(|e| {
+        Error::serde_err(format!(
+            "Error during deserializing `callstack` of calling callable points: {}",
+            e
+        ))
+    })?;
 
     let backend = into_backend(db, api, querier);
     let options = InstanceOptions {
@@ -140,7 +158,7 @@ fn do_call_callable_point(
     let mut arg_ptrs = Vec::<WasmerVal>::with_capacity(args.len() + 1);
     let env_ptr = write_value_to_env(&instance.env, env_u8)?;
     arg_ptrs.push(env_ptr);
-    for arg in args {
+    for arg in &args {
         let ptr = write_value_to_env(&instance.env, arg.as_slice())?;
         arg_ptrs.push(ptr);
     }
@@ -155,13 +173,16 @@ fn do_call_callable_point(
             )?;
             match result_datas.len() {
                 0 => Ok(None),
-                1 => Ok(Some(result_datas[0].clone())),
+                1 => Ok(Some(Binary(result_datas[0].clone()))),
                 _ => Err(Error::dynamic_link_err(
                     "unexpected more than 1 returning values",
                 )),
             }
         }
-        Err(e) => Err(Error::dynamic_link_err(e.to_string())),
+        Err(e) => Err(Error::dynamic_link_err(format!(
+            r#"Error during calling callable point "{}": {}"#,
+            name, e
+        ))),
     }?;
 
     // events

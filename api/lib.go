@@ -653,7 +653,11 @@ func CallCallablePoint(
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
 		return nil, nil, nil, uint64(gasUsed), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), copyAndDestroyUnmanagedVector(events), copyAndDestroyUnmanagedVector(attributes), uint64(gasUsed), nil
+	if isReadonly {
+		return copyAndDestroyUnmanagedVector(res), nil, nil, uint64(gasUsed), nil
+	} else {
+		return copyAndDestroyUnmanagedVector(res), copyAndDestroyUnmanagedVector(events), copyAndDestroyUnmanagedVector(attributes), uint64(gasUsed), nil
+	}
 }
 
 // returns: result, systemerr

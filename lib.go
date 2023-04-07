@@ -783,6 +783,10 @@ func (vm *VM) CallCallablePoint(
 		return nil, nil, nil, gasUsed, err
 	}
 
+	if isReadonly {
+		return data, nil, nil, gasUsed, nil
+	}
+
 	gasForDeserializingEvents := deserCost.Mul(uint64(len(eventsData))).Floor()
 	if gasLimit < gasForDeserializingEvents+gasUsed {
 		return nil, nil, nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize events (%d bytes)", len(eventsData))
