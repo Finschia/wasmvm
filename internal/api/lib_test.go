@@ -963,15 +963,15 @@ func createEventsContract(t *testing.T, cache Cache) []byte {
 }
 
 func createNumberContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "./testdata/number.wasm")
+	return createContract(t, cache, "../../testdata/number.wasm")
 }
 
 func createIntermediateNumberContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "./testdata/intermediate_number.wasm")
+	return createContract(t, cache, "../../testdata/intermediate_number.wasm")
 }
 
 func createCallNumberContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "./testdata/call_number.wasm")
+	return createContract(t, cache, "../../testdata/call_number.wasm")
 }
 
 func createContract(t *testing.T, cache Cache, wasmFile string) []byte {
@@ -1323,7 +1323,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xd50318f0), cost)
+	assert.Equal(t, uint64(0xe1d78d40), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// instantiate intermediate_number contract
@@ -1333,7 +1333,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xeb087500), cost)
+	assert.Equal(t, uint64(0xf8fb0380), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// instantiate call_number contract
@@ -1343,7 +1343,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xedd72560), cost)
+	assert.Equal(t, uint64(0x10229a150), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// fail to execute when calling `add`
@@ -1358,7 +1358,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	_, _, _, cost, err = Execute(cache, checksum_call_number, callerEnvBin, info, msg4, &igasMeter4, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.ErrorContains(t, err, "It is not possible to inherit from read-only permission to read-write permission")
-	assert.Equal(t, uint64(0x19369c5f0), cost)
+	assert.Equal(t, uint64(0x1b8e913d0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// succeed to execute when calling `sub`
@@ -1374,7 +1374,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x535da85b0), cost)
+	assert.Equal(t, uint64(0x59da32030), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 }
