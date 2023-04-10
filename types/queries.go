@@ -367,8 +367,9 @@ type ContractInfoQuery struct {
 // This is a query for `#[callable_point]` func
 type CallablePointQuery struct {
 	// Bech32 encoded sdk.AccAddress of the contract
-	ContractAddr  string `json:"contract_addr"`
-	CallablePoint []byte `json:"func_name"`
+	ContractAddr      string `json:"contract_addr"`
+	CallablePoint     []byte `json:"func_name"`
+	CallablePointArgs []byte `json:"func_args"`
 }
 
 type ContractInfoResponse struct {
