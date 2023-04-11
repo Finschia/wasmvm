@@ -1378,7 +1378,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 }
 
-func TestCallCallablePoint(t *testing.T) {
+func TestCallCallablePointUsingEventManager(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 	checksum := createEventsContract(t, cache)
@@ -1406,12 +1406,12 @@ func TestCallCallablePoint(t *testing.T) {
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(events))
+	assert.Equal(t, 0, len(events))
 
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(attributes))
+	assert.Equal(t, 0, len(attributes))
 
 	// issue events with EventManager
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -1463,17 +1463,17 @@ func TestCallCallablePoint(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0x1766fb680), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-	require.Equal(t, []byte(`null`), res)
+	assert.Equal(t, []byte(`null`), res)
 
 	// check events and attributes
 	err = events.UnmarshalJSON(eventsData)
 	require.NoError(t, err)
 
-	require.Equal(t, eventsIn, events)
+	assert.Equal(t, eventsIn, events)
 
 	err = attributes.UnmarshalJSON(attributesData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(attributes))
+	assert.Equal(t, 0, len(attributes))
 
 	// issue attributes with EventManager
 	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -1504,15 +1504,15 @@ func TestCallCallablePoint(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0xd753e6c0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-	require.Equal(t, []byte(`null`), res)
+	assert.Equal(t, []byte(`null`), res)
 
 	// check events and attributes
 	err = events.UnmarshalJSON(eventsData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(events))
+	assert.Equal(t, 0, len(events))
 
 	err = attributes.UnmarshalJSON(attributesData)
 	require.NoError(t, err)
 
-	require.Equal(t, attrsIn, attributes)
+	assert.Equal(t, attrsIn, attributes)
 }
