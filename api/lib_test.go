@@ -1578,4 +1578,22 @@ func TestCallCallablePointReadonly(t *testing.T) {
 	assert.Nil(t, attributesData)
 	expectedOut := base64.StdEncoding.EncodeToString([]byte(`42`))
 	assert.Equal(t, []byte(fmt.Sprintf(`"%s"`, expectedOut)), res)
+
+	// call readonly callable point
+	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter3 := GasMeter(gasMeter3)
+	store.SetGasMeter(gasMeter3)
+	name = "add"
+	nameBin, err = json.Marshal(name)
+	require.NoError(t, err)
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, true, emptyBin, env, argsBin, &igasMeter3, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.ErrorContains(t, err, "a read-write callable point is called in read-only context")
+	assert.Equal(t, uint64(0xd2db7e0), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+	assert.Nil(t, res)
+	assert.Nil(t, eventsData)
+	assert.Nil(t, attributesData)
 }
