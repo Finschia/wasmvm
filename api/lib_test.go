@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -1515,4 +1516,66 @@ func TestCallCallablePointUsingEventManager(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, attrsIn, attributes)
+}
+
+func TestCallCallablePointReadonly(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum := createNumberContract(t, cache)
+
+	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter1 := GasMeter(gasMeter1)
+	// instantiate it with this store
+	store := NewLookup(gasMeter1)
+	api := NewMockAPI()
+	balance := types.Coins{}
+	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, balance)
+	env := MockEnvBin(t)
+	info := MockInfoBin(t, "creator")
+	msg := []byte(`{"value":42}`)
+
+	start := time.Now()
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff := time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(attributes))
+
+	assert.Equal(t, uint64(0xd3872750), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// call readonly callable point
+	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter2 := GasMeter(gasMeter2)
+	store.SetGasMeter(gasMeter2)
+	name := "number"
+	nameBin, err := json.Marshal(name)
+	require.NoError(t, err)
+	args := [][]byte{}
+	argsBin, err := json.Marshal(args)
+	require.NoError(t, err)
+	empty := []types.HumanAddress{}
+	emptyBin, err := json.Marshal(empty)
+	require.NoError(t, err)
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, true, emptyBin, env, argsBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0x8027ec20), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+	assert.Nil(t, eventsData)
+	assert.Nil(t, attributesData)
+	expectedOut := base64.StdEncoding.EncodeToString([]byte(`42`))
+	assert.Equal(t, []byte(fmt.Sprintf(`"%s"`, expectedOut)), res)
 }
