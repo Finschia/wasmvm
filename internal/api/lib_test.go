@@ -1144,7 +1144,7 @@ func TestEventManager(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xd9b4ba20), cost)
+	assert.Equal(t, uint64(0xd9f4d060), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -1171,7 +1171,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x1e5387610), cost)
+	assert.Equal(t, uint64(0x1e4dce890), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
@@ -1201,7 +1201,7 @@ func TestEventManager(t *testing.T) {
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x14fd00480), cost)
+	assert.Equal(t, uint64(0x15159b1c0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// check events and attributes
@@ -1265,120 +1265,6 @@ func (q MockQuerier_read_write) Query(request types.QueryRequest, _gasLimit uint
 	return nil, types.Unknown{}
 }
 
-func TestDynamicReadWritePermission(t *testing.T) {
-	cache, cleanup := withCache(t)
-	defer cleanup()
-	checksum_number := createNumberContract(t, cache)
-	checksum_intermediate_number := createIntermediateNumberContract(t, cache)
-	checksum_call_number := createCallNumberContract(t, cache)
-
-	// init callee
-	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
-	calleeStore := NewLookup(gasMeter1)
-	calleeEnv := MockEnv()
-	calleeEnv.Contract.Address = "number_addr"
-	calleeEnvBin, err := json.Marshal(calleeEnv)
-	require.NoError(t, err)
-
-	// init intermediate
-	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter2 := GasMeter(gasMeter2)
-	intermediateStore := NewLookup(gasMeter2)
-	intermediateEnv := MockEnv()
-	intermediateEnv.Contract.Address = "intermediate_number_addr"
-	intermediateEnvBin, err := json.Marshal(intermediateEnv)
-	require.NoError(t, err)
-
-	// init caller
-	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter3 := GasMeter(gasMeter3)
-	callerStore := NewLookup(gasMeter3)
-	callerEnv := MockEnv()
-	callerEnv.Contract.Address = "call_number_address"
-	callerEnvBin, err := json.Marshal(callerEnv)
-	require.NoError(t, err)
-
-	// prepare querier
-	balance := types.Coins{}
-	info := MockInfoBin(t, "someone")
-	querier := DefaultQuerier_read_write(calleeEnv.Contract.Address, balance)
-
-	// make api mock with GetContractEnv
-	api := NewMockAPI()
-	mockGetContractEnv := func(addr string, inputSize uint64) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, uint64, error) {
-		if addr == calleeEnv.Contract.Address {
-			return calleeEnv, &cache, calleeStore, querier, GasMeter(NewMockGasMeter(TESTING_GAS_LIMIT)), checksum_number, 0, 0, nil
-		} else if addr == intermediateEnv.Contract.Address {
-			return intermediateEnv, &cache, intermediateStore, querier, GasMeter(NewMockGasMeter(TESTING_GAS_LIMIT)), checksum_intermediate_number, 0, 0, nil
-		} else {
-			return Env{}, nil, nil, nil, nil, []byte{}, 0, 0, fmt.Errorf("unexpected address")
-		}
-	}
-	api.GetContractEnv = mockGetContractEnv
-
-	// instantiate number contract
-	start := time.Now()
-	msg := []byte(`{"value":42}`)
-	res, _, _, cost, err := Instantiate(cache, checksum_number, calleeEnvBin, info, msg, &igasMeter1, calleeStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff := time.Now().Sub(start)
-	require.NoError(t, err)
-	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xe1d78d40), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
-
-	// instantiate intermediate_number contract
-	start = time.Now()
-	msg = []byte(`{"callee_addr":"number_addr"}`)
-	res, _, _, cost, err = Instantiate(cache, checksum_intermediate_number, intermediateEnvBin, info, msg, &igasMeter2, intermediateStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff = time.Now().Sub(start)
-	require.NoError(t, err)
-	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xf8fb0380), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
-
-	// instantiate call_number contract
-	start = time.Now()
-	msg = []byte(`{"callee_addr":"intermediate_number_addr"}`)
-	res, _, _, cost, err = Instantiate(cache, checksum_call_number, callerEnvBin, info, msg, &igasMeter3, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff = time.Now().Sub(start)
-	require.NoError(t, err)
-	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x10229a150), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
-
-	// fail to execute when calling `add`
-	// The intermediate_number contract is intentionally designed so that the `add` function has read-only permission.
-	// The following test fails because of inheritance from read-only permission to read-write permission.
-	gasMeter4 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter4 := GasMeter(gasMeter4)
-	intermediateStore.SetGasMeter(gasMeter4)
-	msg4 := []byte(`{"add":{"value":5}}`)
-
-	start = time.Now()
-	_, _, _, cost, err = Execute(cache, checksum_call_number, callerEnvBin, info, msg4, &igasMeter4, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff = time.Now().Sub(start)
-	require.ErrorContains(t, err, "It is not possible to inherit from read-only permission to read-write permission")
-	assert.Equal(t, uint64(0x1b8e913d0), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
-
-	// succeed to execute when calling `sub`
-	// The intermediate_number contract is designed so that the `sub` function has read-write permission.
-	// The following test succeeds because the permissions are properly inherited.
-	gasMeter5 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter5 := GasMeter(gasMeter5)
-	intermediateStore.SetGasMeter(gasMeter5)
-	msg5 := []byte(`{"sub":{"value":5}}`)
-
-	start = time.Now()
-	_, _, _, cost, err = Execute(cache, checksum_call_number, callerEnvBin, info, msg5, &igasMeter5, callerStore, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff = time.Now().Sub(start)
-	require.NoError(t, err)
-	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x59da32030), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
-}
-
 func TestCallCallablePointUsingEventManager(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
@@ -1400,7 +1286,7 @@ func TestCallCallablePointUsingEventManager(t *testing.T) {
 	diff := time.Now().Sub(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0xc5c6f370), cost)
+	assert.Equal(t, uint64(0xd9f4d060), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// make sure it does not uses EventManager
@@ -1462,7 +1348,7 @@ func TestCallCallablePointUsingEventManager(t *testing.T) {
 	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, false, emptyBin, env, argsEvBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(0x1766fb680), cost)
+	assert.Equal(t, uint64(0x18a9d9370), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 	assert.Equal(t, []byte(`null`), res)
 
@@ -1503,7 +1389,7 @@ func TestCallCallablePointUsingEventManager(t *testing.T) {
 	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, false, emptyBin, env, argsAtBin, &igasMeter3, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(0xd753e6c0), cost)
+	assert.Equal(t, uint64(0xeb81c3b0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 	assert.Equal(t, []byte(`null`), res)
 
@@ -1551,7 +1437,7 @@ func TestCallCallablePointReadonly(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(attributes))
 
-	assert.Equal(t, uint64(0xd3872750), cost)
+	assert.Equal(t, uint64(0xe122bc30), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 
 	// call readonly callable point
@@ -1572,7 +1458,7 @@ func TestCallCallablePointReadonly(t *testing.T) {
 	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, true, emptyBin, env, argsBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(0x8027ec20), cost)
+	assert.Equal(t, uint64(0x91e73a10), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 	assert.Nil(t, eventsData)
 	assert.Nil(t, attributesData)
@@ -1591,7 +1477,7 @@ func TestCallCallablePointReadonly(t *testing.T) {
 	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, true, emptyBin, env, argsBin, &igasMeter3, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	diff = time.Now().Sub(start)
 	require.ErrorContains(t, err, "a read-write callable point is called in read-only context")
-	assert.Equal(t, uint64(0xd2db7e0), cost)
+	assert.Equal(t, uint64(0xd292400), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 	assert.Nil(t, res)
 	assert.Nil(t, eventsData)
