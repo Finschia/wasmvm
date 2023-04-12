@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -1378,7 +1379,7 @@ func TestDynamicReadWritePermission(t *testing.T) {
 	t.Logf("Time (%d gas): %s\n", cost, diff)
 }
 
-func TestCallCallablePoint(t *testing.T) {
+func TestCallCallablePointUsingEventManager(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 	checksum := createEventsContract(t, cache)
@@ -1406,12 +1407,12 @@ func TestCallCallablePoint(t *testing.T) {
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(events))
+	assert.Equal(t, 0, len(events))
 
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(attributes))
+	assert.Equal(t, 0, len(attributes))
 
 	// issue events with EventManager
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -1463,17 +1464,17 @@ func TestCallCallablePoint(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0x1766fb680), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-	require.Equal(t, []byte(`null`), res)
+	assert.Equal(t, []byte(`null`), res)
 
 	// check events and attributes
 	err = events.UnmarshalJSON(eventsData)
 	require.NoError(t, err)
 
-	require.Equal(t, eventsIn, events)
+	assert.Equal(t, eventsIn, events)
 
 	err = attributes.UnmarshalJSON(attributesData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(attributes))
+	assert.Equal(t, 0, len(attributes))
 
 	// issue attributes with EventManager
 	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
@@ -1504,17 +1505,97 @@ func TestCallCallablePoint(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0xd753e6c0), cost)
 	t.Logf("Time (%d gas): %s\n", cost, diff)
-	require.Equal(t, []byte(`null`), res)
+	assert.Equal(t, []byte(`null`), res)
 
 	// check events and attributes
 	err = events.UnmarshalJSON(eventsData)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(events))
+	assert.Equal(t, 0, len(events))
 
 	err = attributes.UnmarshalJSON(attributesData)
 	require.NoError(t, err)
 
-	require.Equal(t, attrsIn, attributes)
+	assert.Equal(t, attrsIn, attributes)
+}
+
+func TestCallCallablePointReadonly(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum := createNumberContract(t, cache)
+
+	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter1 := GasMeter(gasMeter1)
+	// instantiate it with this store
+	store := NewLookup(gasMeter1)
+	api := NewMockAPI()
+	balance := types.Coins{}
+	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, balance)
+	env := MockEnvBin(t)
+	info := MockInfoBin(t, "creator")
+	msg := []byte(`{"value":42}`)
+
+	start := time.Now()
+	res, eventsData, attributesData, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff := time.Now().Sub(start)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+
+	// make sure it does not uses EventManager
+	var events types.Events
+	err = events.UnmarshalJSON(eventsData)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(events))
+
+	var attributes types.EventAttributes
+	err = attributes.UnmarshalJSON(attributesData)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(attributes))
+
+	assert.Equal(t, uint64(0xd3872750), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+
+	// call readonly callable point
+	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter2 := GasMeter(gasMeter2)
+	store.SetGasMeter(gasMeter2)
+	name := "number"
+	nameBin, err := json.Marshal(name)
+	require.NoError(t, err)
+	args := [][]byte{}
+	argsBin, err := json.Marshal(args)
+	require.NoError(t, err)
+	empty := []types.HumanAddress{}
+	emptyBin, err := json.Marshal(empty)
+	require.NoError(t, err)
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, true, emptyBin, env, argsBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0x8027ec20), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+	assert.Nil(t, eventsData)
+	assert.Nil(t, attributesData)
+	expectedOut := base64.StdEncoding.EncodeToString([]byte(`42`))
+	assert.Equal(t, []byte(fmt.Sprintf(`"%s"`, expectedOut)), res)
+
+	// call readonly callable point
+	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter3 := GasMeter(gasMeter3)
+	store.SetGasMeter(gasMeter3)
+	name = "add"
+	nameBin, err = json.Marshal(name)
+	require.NoError(t, err)
+
+	start = time.Now()
+	res, eventsData, attributesData, cost, err = CallCallablePoint(nameBin, cache, checksum, true, emptyBin, env, argsBin, &igasMeter3, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	diff = time.Now().Sub(start)
+	require.ErrorContains(t, err, "a read-write callable point is called in read-only context")
+	assert.Equal(t, uint64(0xd2db7e0), cost)
+	t.Logf("Time (%d gas): %s\n", cost, diff)
+	assert.Nil(t, res)
+	assert.Nil(t, eventsData)
+	assert.Nil(t, attributesData)
 }
 
 func TestValidateDynamicLinkInterafce(t *testing.T) {

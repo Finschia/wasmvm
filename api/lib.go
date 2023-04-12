@@ -609,7 +609,7 @@ func IBCPacketTimeout(
 // name: Serialized string
 // args: Serialized [][]byte
 // callstack: Serialized []string
-// returned used_gas: without instantiation cost
+// returned gasUsed: used gas without instantiation cost
 func CallCallablePoint(
 	name []byte,
 	cache Cache,

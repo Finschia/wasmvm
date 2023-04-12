@@ -152,7 +152,13 @@ fn do_call_callable_point(
     instance.env.set_dynamic_callstack(callstack)?;
 
     // set permission
-    set_callee_permission(&mut instance, &name, is_readonly)?;
+    match set_callee_permission(&mut instance, &name, is_readonly) {
+        Ok(v) => v,
+        Err(e) => {
+            *gas_used = instance.create_gas_report().used_internally;
+            return Err(e.into());
+        }
+    };
 
     // prepare inputs
     let mut arg_ptrs = Vec::<WasmerVal>::with_capacity(args.len() + 1);
