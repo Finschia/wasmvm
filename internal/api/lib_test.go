@@ -967,14 +967,6 @@ func createNumberContract(t *testing.T, cache Cache) []byte {
 	return createContract(t, cache, "../../testdata/number.wasm")
 }
 
-func createIntermediateNumberContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "../../testdata/intermediate_number.wasm")
-}
-
-func createCallNumberContract(t *testing.T, cache Cache) []byte {
-	return createContract(t, cache, "../../testdata/call_number.wasm")
-}
-
 func createContract(t *testing.T, cache Cache, wasmFile string) []byte {
 	wasm, err := ioutil.ReadFile(wasmFile)
 	require.NoError(t, err)
