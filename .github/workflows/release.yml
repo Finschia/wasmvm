@@ -20,7 +20,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.57.0
+          toolchain: 1.60.0
           profile: minimal
           override: true
       - name: Checkout
@@ -34,38 +34,6 @@ jobs:
         run: |
           VERSION=$(cargo tree -i wasmvm | grep -oE "[0-9]+(\.[0-9]+){2}-[0-9]+(\.[0-9]+){2}")
             echo ::set-output name=version::v$VERSION
-
-  build_static_lib:
-    name: Build static libraries
-    needs:
-      - get-version
-    if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: set up
-        uses: actions/setup-go@v3.2.1
-        with:
-          go-version: 1.18
-        id: go
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Build docker image
-        run: cd builders && make docker-image-alpine
-      - name: Build & Test static library
-        run: make release-build-alpine
-      - name: Collect artifacts
-        run: |
-          mkdir artifacts
-          cp ./api/libwasmvm_muslc.a artifacts/libwasmvm_muslc.x86_64.a
-          cp ./api/libwasmvm_muslc.aarch64.a artifacts/libwasmvm_muslc.aarch64.a
-      - name: Create checksums
-        working-directory: artifacts
-        run: sha256sum * > checksums.txt && cat checksums.txt
-      - name: Upload static library
-        uses: actions/upload-artifact@v2
-        with:
-          name: artifacts
-          path: ./artifacts
 
   push-tag: # if the version does not exist as git tag, push it
     name: Push Tag
@@ -81,15 +49,36 @@ jobs:
           "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs"
 
   update-releases:
-    name: Update Latest release
+    name: Update releases
     needs:
-      - push-tag
-      - build_static_lib
+      - get-version
+      - push-tag     
     if: ${{ needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - name: set up
+        uses: actions/setup-go@v3.2.1
+        with:
+          go-version: 1.18
+        id: go
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build docker image
+        run: cd builders && make docker-image-alpine
+      - name: Build & Test static library
+        run: make release-build-alpine
+      - name: Collect artifacts
+        run: |
+          mkdir artifacts
+          cp ./internal/api/libwasmvm_muslc.a ./artifacts/libwasmvm_muslc.x86_64.a
+          cp ./internal/api/libwasmvm_muslc.aarch64.a ./artifacts/libwasmvm_muslc.aarch64.a
+      - name: Create checksums
+        working-directory: ./artifacts
+        run: sha256sum * > checksums.txt && cat checksums.txt
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v0.1.13
         with:
           tag_name: ${{ needs.get-version.outputs.package-version }}
           body: ${{ github.event.pull_request.body }}

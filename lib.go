@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/line/wasmvm/api"
+	"github.com/line/wasmvm/internal/api"
 	"github.com/line/wasmvm/types"
 )
 
@@ -16,8 +16,6 @@ type WasmCode []byte
 
 // KVStore is a reference to some sub-kvstore that is valid for one instance of a code
 type KVStore = api.KVStore
-
-type Iterator = api.Iterator
 
 // GoAPI is a reference to some "precompiles", go callbacks
 type GoAPI = api.GoAPI
@@ -113,6 +111,15 @@ func (vm *VM) GetMetrics() (*types.Metrics, error) {
 	return api.GetMetrics(vm.cache)
 }
 
+func costGasForDeserialization(gasLimit uint64, deserCost types.UFraction, gasUsed *uint64, data []byte) error {
+	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
+	if gasLimit < gasForDeserialization+*gasUsed {
+		return fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	}
+	*gasUsed += gasForDeserialization
+	return nil
+}
+
 // Instantiate will create a new contract based on the given Checksum.
 // We can set the initMsg (contract "genesis") here, and it then receives
 // an account and address and can be invoked (Execute) many times.
@@ -146,22 +153,33 @@ func (vm *VM) Instantiate(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var result types.ContractResult
 	err = json.Unmarshal(data, &result)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -206,22 +224,33 @@ func (vm *VM) Execute(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
 
-	gasUsed += gasForDeserialization
 	var result types.ContractResult
 	err = json.Unmarshal(data, &result)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -258,11 +287,10 @@ func (vm *VM) Query(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.QueryResponse
 	err = json.Unmarshal(data, &resp)
@@ -301,22 +329,33 @@ func (vm *VM) Migrate(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.ContractResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -356,22 +395,33 @@ func (vm *VM) Sudo(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.ContractResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -413,22 +463,33 @@ func (vm *VM) Reply(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.ContractResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -468,11 +529,10 @@ func (vm *VM) IBCChannelOpen(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCChannelOpenResult
 	err = json.Unmarshal(data, &resp)
@@ -511,22 +571,33 @@ func (vm *VM) IBCChannelConnect(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -566,22 +637,33 @@ func (vm *VM) IBCChannelClose(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -621,19 +703,30 @@ func (vm *VM) IBCPacketReceive(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCReceiveResult
 	err = json.Unmarshal(data, &resp)
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -674,22 +767,33 @@ func (vm *VM) IBCPacketAck(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
@@ -730,22 +834,33 @@ func (vm *VM) IBCPacketTimeout(
 		return nil, gasUsed, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, data)
+	if err != nil {
+		return nil, gasUsed, err
 	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
 	err = json.Unmarshal(data, &resp)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, eventsData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var events types.Events
 	err = events.UnmarshalJSON(eventsData)
 	if err != nil {
 		return nil, gasUsed, err
 	}
+
+	err = costGasForDeserialization(gasLimit, deserCost, &gasUsed, attributesData)
+	if err != nil {
+		return nil, gasUsed, err
+	}
+
 	var attributes types.EventAttributes
 	err = attributes.UnmarshalJSON(attributesData)
 	if err != nil {
