@@ -1210,53 +1210,6 @@ func TestEventManager(t *testing.T) {
 	require.Equal(t, expectedAttributes, attributes)
 }
 
-// This is used for TestDynamicReadWritePermission
-type MockQuerier_read_write struct {
-	Bank    BankQuerier
-	Custom  CustomQuerier
-	usedGas uint64
-}
-
-var _ types.Querier = MockQuerier_read_write{}
-
-func (q MockQuerier_read_write) GasConsumed() uint64 {
-	return q.usedGas
-}
-
-func DefaultQuerier_read_write(contractAddr string, coins types.Coins) Querier {
-	balances := map[string]types.Coins{
-		contractAddr: coins,
-	}
-	return MockQuerier_read_write{
-		Bank:    NewBankQuerier(balances),
-		Custom:  NoCustom{},
-		usedGas: 0,
-	}
-}
-
-func (q MockQuerier_read_write) Query(request types.QueryRequest, _gasLimit uint64) ([]byte, error) {
-	marshaled, err := json.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-	q.usedGas += uint64(len(marshaled))
-	if request.Bank != nil {
-		return q.Bank.Query(request.Bank)
-	}
-	if request.Custom != nil {
-		return q.Custom.Query(request.Custom)
-	}
-	if request.Staking != nil {
-		return nil, types.UnsupportedRequest{"staking"}
-	}
-	if request.Wasm != nil {
-		// This value is set for use with TestDynamicReadWritePermission.
-		// 42 is meaningless.
-		return []byte(`{"value":42}`), nil
-	}
-	return nil, types.Unknown{}
-}
-
 func TestCallCallablePointUsingEventManager(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
