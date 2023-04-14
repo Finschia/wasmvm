@@ -608,6 +608,80 @@ func IBCPacketTimeout(
 	return copyAndDestroyUnmanagedVector(res), copyAndDestroyUnmanagedVector(events), copyAndDestroyUnmanagedVector(attributes), uint64(gasUsed), nil
 }
 
+// name: Serialized string
+// args: Serialized [][]byte
+// callstack: Serialized []string
+// returned gasUsed: used gas without instantiation cost
+func CallCallablePoint(
+	name []byte,
+	cache Cache,
+	checksum []byte,
+	isReadonly bool,
+	callstack []byte,
+	env []byte,
+	args []byte,
+	gasMeter *GasMeter,
+	store KVStore,
+	api *GoAPI,
+	querier *Querier,
+	gasLimit uint64,
+	printDebug bool,
+) ([]byte, []byte, []byte, uint64, error) {
+	n := makeView(name)
+	defer runtime.KeepAlive(name)
+	cs := makeView(checksum)
+	defer runtime.KeepAlive(checksum)
+	e := makeView(env)
+	defer runtime.KeepAlive(env)
+	s := makeView(callstack)
+	defer runtime.KeepAlive(callstack)
+	as := makeView(args)
+	defer runtime.KeepAlive(args)
+
+	callID := startCall()
+	defer endCall(callID)
+
+	dbState := buildDBState(store, callID)
+	db := buildDB(&dbState, gasMeter)
+	a := buildAPI(api)
+	q := buildQuerier(querier)
+	var gasUsed cu64
+	errmsg := newUnmanagedVector(nil)
+	events := newUnmanagedVector(nil)
+	attributes := newUnmanagedVector(nil)
+
+	res, err := C.call_callable_point(n, cache.ptr, cs, cbool(isReadonly), s, e, as, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &events, &attributes, &errmsg)
+	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
+		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
+		return nil, nil, nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+	}
+	if isReadonly {
+		return copyAndDestroyUnmanagedVector(res), nil, nil, uint64(gasUsed), nil
+	} else {
+		return copyAndDestroyUnmanagedVector(res), copyAndDestroyUnmanagedVector(events), copyAndDestroyUnmanagedVector(attributes), uint64(gasUsed), nil
+	}
+}
+
+// returns: result, systemerr
+//
+//	result: serialized Option<String> which None means true, Some(e) means false and the reason is e.
+func ValidateDynamicLinkInterface(
+	cache Cache,
+	checksum []byte,
+	expectedInterface []byte,
+) ([]byte, error) {
+	cs := makeView(checksum)
+	defer runtime.KeepAlive(checksum)
+	ei := makeView(expectedInterface)
+	defer runtime.KeepAlive(expectedInterface)
+	errmsg := newUnmanagedVector(nil)
+	res, err := C.validate_interface(cache.ptr, cs, ei, &errmsg)
+	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
+		return nil, errorWithMessage(err, errmsg)
+	}
+	return copyAndDestroyUnmanagedVector(res), nil
+}
+
 /**** To error module ***/
 
 func errorWithMessage(err error, b C.UnmanagedVector) error {

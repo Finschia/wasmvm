@@ -6,6 +6,7 @@ mod args;
 mod cache;
 mod calls;
 mod db;
+mod dynamic_link;
 mod error;
 mod gas_meter;
 mod iterator;

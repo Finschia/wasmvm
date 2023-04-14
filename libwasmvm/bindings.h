@@ -297,6 +297,8 @@ typedef struct GoApi_vtable {
   int32_t (*humanize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
   int32_t (*canonicalize_address)(const struct api_t*, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
   int32_t (*get_contract_env)(const struct api_t*, struct U8SliceView, uint64_t, struct UnmanagedVector*, struct cache_t**, struct Db*, struct GoQuerier*, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*, uint64_t*);
+  int32_t (*call_callable_point)(const struct api_t*, struct U8SliceView, struct U8SliceView, struct U8SliceView, bool, struct U8SliceView, uint64_t, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
+  int32_t (*validate_interface)(const struct api_t*, struct U8SliceView, struct U8SliceView, struct UnmanagedVector*, struct UnmanagedVector*, uint64_t*);
 } GoApi_vtable;
 
 typedef struct GoApi {
@@ -502,6 +504,28 @@ struct UnmanagedVector ibc_packet_timeout(struct cache_t *cache,
                                           uint64_t *gas_used,
                                           struct UnmanagedVector *events,
                                           struct UnmanagedVector *attributes,
+                                          struct UnmanagedVector *error_msg);
+
+struct UnmanagedVector call_callable_point(struct ByteSliceView name,
+                                           struct cache_t *cache,
+                                           struct ByteSliceView checksum,
+                                           bool is_readonly,
+                                           struct ByteSliceView callstack,
+                                           struct ByteSliceView env,
+                                           struct ByteSliceView args,
+                                           struct Db db,
+                                           struct GoApi api,
+                                           struct GoQuerier querier,
+                                           uint64_t gas_limit,
+                                           bool print_debug,
+                                           uint64_t *gas_used,
+                                           struct UnmanagedVector *events,
+                                           struct UnmanagedVector *attributes,
+                                           struct UnmanagedVector *error_msg);
+
+struct UnmanagedVector validate_interface(struct cache_t *cache,
+                                          struct ByteSliceView checksum,
+                                          struct ByteSliceView expected_interface,
                                           struct UnmanagedVector *error_msg);
 
 struct UnmanagedVector new_unmanaged_vector(bool nil, const uint8_t *ptr, uintptr_t length);
