@@ -14,7 +14,6 @@ GoError cNext(iterator_t *ptr, gas_meter_t *gas_meter, uint64_t *used_gas, Unman
 // imports (api)
 GoError cHumanAddress(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
 GoError cCanonicalAddress(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
-GoError cGetContractEnv(api_t *ptr, U8SliceView contractAddr, uint64_t input_length, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *instantiate_cost, uint64_t *used_gas);
 GoError cCallCallablePoint(api_t *ptr, U8SliceView contractAddr, U8SliceView name, U8SliceView args, bool isReadonly, U8SliceView callstack, uint64_t gasLimit, UnmanagedVector *result, UnmanagedVector *errOut, uint64_t *used_gas);
 GoError cValidateInterface(api_t *ptr, U8SliceView contractAddr, U8SliceView expectedInterface, UnmanagedVector *result, UnmanagedVector *errOut, uint64_t *used_gas);
 
@@ -46,9 +45,6 @@ GoError cCanonicalAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest
 }
 GoError cHumanAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas) {
     return cHumanAddress(ptr, src, dest, errOut, used_gas);
-}
-GoError cGetContractEnv_cgo(api_t *ptr, U8SliceView contractAddr, uint64_t input_length, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *instantiate_cost, uint64_t *used_gas) {
-    return cGetContractEnv(ptr, contractAddr, input_length, contractEnvOut, cachePtrOut, dbOut, querierOut, checksumOut, errOut, instantiate_cost, used_gas);
 }
 GoError cCallCallablePoint_cgo(api_t *ptr, U8SliceView contractAddr, U8SliceView name, U8SliceView args, bool isReadonly, U8SliceView callstack, uint64_t gasLimit, UnmanagedVector *result, UnmanagedVector *errOut, uint64_t *used_gas) {
     return cCallCallablePoint(ptr, contractAddr, name, args, isReadonly, callstack, gasLimit, result, errOut, used_gas);

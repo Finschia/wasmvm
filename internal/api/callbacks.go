@@ -16,7 +16,6 @@ typedef GoError (*next_db_fn)(iterator_t idx, gas_meter_t *gas_meter, uint64_t *
 // and api
 typedef GoError (*humanize_address_fn)(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
 typedef GoError (*canonicalize_address_fn)(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
-typedef GoError (*get_contract_env_fn)(api_t *ptr, U8SliceView contractAddr, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *used_gas);
 typedef GoError (*call_callable_point_fn)(api_t *ptr, U8SliceView contractAddr, U8SliceView name, U8SliceView args, bool isReadonly, U8SliceView callstack, uint64_t gasLimit, UnmanagedVector *result, UnmanagedVector *errOut, uint64_t *used_gas);
 typedef GoError (*validate_interface_fn)(api_t *ptr, U8SliceView contractAddr, U8SliceView expectedInterface, UnmanagedVector *result, UnmanagedVector *errOut, uint64_t *used_gas);
 typedef GoError (*query_external_fn)(querier_t *ptr, uint64_t gas_limit, uint64_t *used_gas, U8SliceView request, UnmanagedVector *result, UnmanagedVector *errOut);
@@ -31,7 +30,6 @@ GoError cNext_cgo(iterator_t *ptr, gas_meter_t *gas_meter, uint64_t *used_gas, U
 // api
 GoError cHumanAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
 GoError cCanonicalAddress_cgo(api_t *ptr, U8SliceView src, UnmanagedVector *dest, UnmanagedVector *errOut, uint64_t *used_gas);
-GoError cGetContractEnv_cgo(api_t *ptr, U8SliceView contractAddr, uint64_t inputLength, UnmanagedVector *contractEnvOut, cache_t **cachePtrOut, Db *dbOut, GoQuerier* querierOut, UnmanagedVector *checksumOut, UnmanagedVector *errOut, uint64_t *instantiate_cost, uint64_t *used_gas);
 GoError cCallCallablePoint_cgo(api_t *ptr, U8SliceView contractAddr, U8SliceView name, U8SliceView args, bool isReadonly, U8SliceView callstack, uint64_t gasLimit, UnmanagedVector *result, UnmanagedVector *errOut, uint64_t *used_gas);
 GoError cValidateInterface_cgo(api_t *ptr, U8SliceView contractAddr, U8SliceView expectedInterface, UnmanagedVector *result, UnmanagedVector *errOut, uint64_t *used_gas);
 // and querier
@@ -351,7 +349,6 @@ func cNext(ref C.iterator_t, gasMeter *C.gas_meter_t, usedGas *C.uint64_t, key *
 type (
 	HumanizeAddress      func([]byte) (string, uint64, error)
 	CanonicalizeAddress  func(string) ([]byte, uint64, error)
-	GetContractEnv       func(string, uint64) (Env, *Cache, KVStore, Querier, GasMeter, []byte, uint64, uint64, error)
 	APICallCallablePoint func(string, []byte, []byte, bool, []byte, uint64) ([]byte, uint64, error)
 	APIValidateInterface func(string, []byte) ([]byte, uint64, error)
 )
@@ -359,7 +356,6 @@ type (
 type GoAPI struct {
 	HumanAddress      HumanizeAddress
 	CanonicalAddress  CanonicalizeAddress
-	GetContractEnv    GetContractEnv
 	CallCallablePoint APICallCallablePoint
 	ValidateInterface APIValidateInterface
 }
@@ -367,7 +363,6 @@ type GoAPI struct {
 var api_vtable = C.GoApi_vtable{
 	humanize_address:     (C.humanize_address_fn)(C.cHumanAddress_cgo),
 	canonicalize_address: (C.canonicalize_address_fn)(C.cCanonicalAddress_cgo),
-	get_contract_env:     (C.get_contract_env_fn)(C.cGetContractEnv_cgo),
 	call_callable_point:  (C.call_callable_point_fn)(C.cCallCallablePoint_cgo),
 	validate_interface:   (C.validate_interface_fn)(C.cValidateInterface_cgo),
 }
@@ -433,50 +428,6 @@ func cCanonicalAddress(ptr *C.api_t, src C.U8SliceView, dest *C.UnmanagedVector,
 		panic(fmt.Sprintf("`api.CanonicalAddress()` returned an empty string for %q", s))
 	}
 	*dest = newUnmanagedVector(c)
-	return C.GoError_None
-}
-
-//export cGetContractEnv
-func cGetContractEnv(ptr *C.api_t, contractAddr C.U8SliceView, inputLength cu64, contractEnvOut *C.UnmanagedVector, cachePtrOut **C.cache_t, dbOut *C.Db, querierOut *C.GoQuerier, checksumOut *C.UnmanagedVector, errOut *C.UnmanagedVector, instantiate_cost *cu64, used_gas *cu64) (ret C.GoError) {
-	defer recoverPanic(&ret)
-
-	if contractEnvOut == nil || cachePtrOut == nil || dbOut == nil || querierOut == nil || checksumOut == nil || errOut == nil {
-		return C.GoError_BadArgument
-	}
-	if !(*checksumOut).is_none || !(*errOut).is_none {
-		panic("Got a non-none UnmanagedVector we're about to override. This is a bug because someone has to drop the old one.")
-	}
-
-	api := (*GoAPI)(unsafe.Pointer(ptr))
-	s := string(copyU8Slice(contractAddr))
-	l := uint64(inputLength)
-	contractEnv, cache, store, querier, gasMeter, checksum, instantiateCost, cost, err := api.GetContractEnv(s, l)
-	*used_gas = cu64(cost)
-	*instantiate_cost = cu64(instantiateCost)
-	if err != nil {
-		// store the actual error message in the return buffer
-		*errOut = newUnmanagedVector([]byte(err.Error()))
-		return C.GoError_User
-	}
-	envBin, err := json.Marshal(contractEnv)
-	if err != nil {
-		*errOut = newUnmanagedVector([]byte(err.Error()))
-		return C.GoError_Other
-	}
-
-	counter := startCall()
-	defer endCall(counter)
-
-	dbState := buildDBState(store, counter)
-	db := buildDB(&dbState, &gasMeter)
-	q := buildQuerier(&querier)
-
-	*contractEnvOut = newUnmanagedVector(envBin)
-	*checksumOut = newUnmanagedVector(checksum)
-	*cachePtrOut = cache.ptr
-	*dbOut = db
-	*querierOut = q
-
 	return C.GoError_None
 }
 
