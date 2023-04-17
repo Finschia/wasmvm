@@ -45,7 +45,7 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/line/wasmvm/types"
+	"github.com/Finschia/wasmvm/types"
 )
 
 // Note: we have to include all exports in the same file (at least since they both import bindings.h),
@@ -69,18 +69,18 @@ func recoverPanic(ret *C.GoError) {
 		name := reflect.TypeOf(rec).Name()
 		switch name {
 		// These three types are "thrown" (which is not a thing in Go 🙃) in panics from the gas module
-		// (https://github.com/line/lbm-sdk/blob/main/store/types/gas.go):
+		// (https://github.com/Finschia/lbm-sdk/blob/main/store/types/gas.go):
 		// 1. ErrorOutOfGas
 		// 2. ErrorGasOverflow
 		// 3. ErrorNegativeGasConsumed
 		//
 		// In the baseapp, ErrorOutOfGas gets special treatment:
-		// - https://github.com/line/lbm-sdk/blob/main/baseapp/baseapp.go#L647
-		// - https://github.com/line/lbm-sdk/blob/main/baseapp/recovery.go#L50-L60
+		// - https://github.com/Finschia/lbm-sdk/blob/main/baseapp/baseapp.go#L647
+		// - https://github.com/Finschia/lbm-sdk/blob/main/baseapp/recovery.go#L50-L60
 		// This turns the panic into a regular error with a helpful error message.
 		//
 		// The other two gas related panic types indicate programming errors and are handled along
-		// with all other errors in https://github.com/line/lbm-sdk/blob/main/baseapp/recovery.go#L66-L77.
+		// with all other errors in https://github.com/Finschia/lbm-sdk/blob/main/baseapp/recovery.go#L66-L77.
 		case "ErrorOutOfGas":
 			// TODO: figure out how to pass the text in its `Descriptor` field through all the FFI
 			*ret = C.GoError_OutOfGas
@@ -95,7 +95,7 @@ func recoverPanic(ret *C.GoError) {
 type Gas = uint64
 
 // GasMeter is a copy of an interface declaration from lbm-sdk
-// Defined in https://github.com/line/lbm-sdk/blob/main/store/types/gas.go
+// Defined in https://github.com/Finschia/lbm-sdk/blob/main/store/types/gas.go
 type GasMeter interface {
 	GasConsumed() Gas
 }
@@ -104,7 +104,7 @@ type GasMeter interface {
 
 // KVStore copies a subset of types from lbm-sdk
 // We may wish to make this more generic sometime in the future, but not now
-// Original KVStore is defined in https://github.com/line/lbm-sdk/blob/main/store/types/store.go
+// Original KVStore is defined in https://github.com/Finschia/lbm-sdk/blob/main/store/types/store.go
 type KVStore interface {
 	Get(key []byte) []byte
 	Set(key, value []byte)
@@ -201,7 +201,7 @@ func cGet(ptr *C.db_t, gasMeter *C.gas_meter_t, usedGas *cu64, key C.U8SliceView
 	*usedGas = (cu64)(gasAfter - gasBefore)
 
 	// v will equal nil when the key is missing
-	// https://github.com/line/lbm-sdk/blob/786df84b8e0aaa0a1aff79ffbab0541e597ee004/store/types/store.go#L203
+	// https://github.com/Finschia/lbm-sdk/blob/786df84b8e0aaa0a1aff79ffbab0541e597ee004/store/types/store.go#L203
 	*val = newUnmanagedVector(v)
 
 	return C.GoError_None
