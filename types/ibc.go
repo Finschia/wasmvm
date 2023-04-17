@@ -149,8 +149,8 @@ type IBCPacketTimeoutMsg struct {
 }
 
 // TODO: test what the sdk Order.String() represents and how to parse back
-// `Order` in Proto files: https://github.com/line/lbm-sdk/blob/main/proto/ibc/core/channel/v1/channel.proto
-// `ORder` in Auto-gen code: https://github.com/line/lbm-sdk/blob/main/x/ibc/core/04-channel/types/channel.pb.go
+// `Order` in Proto files: https://github.com/Finschia/lbm-sdk/blob/main/proto/ibc/core/channel/v1/channel.proto
+// `ORder` in Auto-gen code: https://github.com/Finschia/lbm-sdk/blob/main/x/ibc/core/04-channel/types/channel.pb.go
 type IBCOrder = string
 
 // These are the only two valid values for IbcOrder
@@ -221,7 +221,7 @@ type IBCBasicResult struct {
 }
 
 // IBCBasicResponse defines the return value on a successful processing.
-// This is the counterpart of `IbcBasicResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
+// This is the counterpart of `IbcBasicResponse` in https://github.com/Finschia/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCBasicResponse struct {
 	// Messages comes directly from the contract and is its request for action.
 	// If the ReplyOn value matches the result, the runtime will invoke this
@@ -252,7 +252,7 @@ type IBCReceiveResult struct {
 // Where the Acknowledgement bytes contain an encoded error message to be returned to
 // the calling chain. (Returning IBCReceiveResult::Err will abort processing of this packet
 // and not inform the calling chain).
-// This is the counterpart of `IbcReceiveResponse` in https://github.com/line/cosmwasm/blob/main/packages/std/src/ibc.rs .
+// This is the counterpart of `IbcReceiveResponse` in https://github.com/Finschia/cosmwasm/blob/main/packages/std/src/ibc.rs .
 type IBCReceiveResponse struct {
 	// binary encoded data to be returned to calling chain as the acknowledgement
 	Acknowledgement []byte `json:"acknowledgement"`
