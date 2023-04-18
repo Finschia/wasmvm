@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/line/wasmvm/types"
+	"github.com/Finschia/wasmvm/types"
 )
 
 /** helper constructors **/
@@ -178,7 +178,7 @@ func MockIBCPacketTimeout(myChannel string, data []byte) types.IBCPacketTimeoutM
 }
 
 /*** Mock GasMeter ****/
-// This code is borrowed from lbm-sdk store/types/gas.go
+// This code is borrowed from finschia-sdk store/types/gas.go
 
 // ErrorOutOfGas defines an error thrown when an action results in out of gas.
 type ErrorOutOfGas struct {
@@ -241,7 +241,7 @@ func (g *mockGasMeter) ConsumeGas(amount Gas, descriptor string) {
 }
 
 /*** Mock KVStore ****/
-// Much of this code is borrowed from lbm-sdk store/transient.go
+// Much of this code is borrowed from finschia-sdk store/transient.go
 
 // Note: these gas prices are all in *wasmer gas* and (sdk gas * 100)
 //

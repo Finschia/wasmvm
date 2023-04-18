@@ -15,7 +15,7 @@ type ContractResult struct {
 }
 
 // Response defines the return value on a successful instantiate/execute/migrate.
-// This is the counterpart of `Response` in https://github.com/line/cosmwasm/blob/main/packages/std/src/results/response.rs .
+// This is the counterpart of `Response` in https://github.com/Finschia/cosmwasm/blob/main/packages/std/src/results/response.rs .
 type Response struct {
 	// Messages comes directly from the contract and is its request for action.
 	// If the ReplyOn value matches the result, the runtime will invoke this
@@ -112,7 +112,7 @@ type BankMsg struct {
 	Burn *BurnMsg `json:"burn,omitempty"`
 }
 
-// SendMsg contains instructions for a lbm-sdk/SendMsg
+// SendMsg contains instructions for a finschia-sdk/SendMsg
 // It has a fixed interface here and should be converted into the proper SDK format before dispatching
 type SendMsg struct {
 	ToAddress string `json:"to_address"`
@@ -282,7 +282,7 @@ type ExecuteMsg struct {
 // InstantiateMsg will create a new contract instance from a previously uploaded CodeID.
 // This allows one contract to spawn "sub-contracts".
 type InstantiateMsg struct {
-	// CodeID is the reference to the wasm byte code as used by the lbm-sdk
+	// CodeID is the reference to the wasm byte code as used by the finschia-sdk
 	CodeID uint64 `json:"code_id"`
 	// Msg is assumed to be a json-encoded message, which will be passed directly
 	// as `userMsg` when calling `Init` on a new contract with the above-defined CodeID

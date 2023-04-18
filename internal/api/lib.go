@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/line/wasmvm/types"
+	"github.com/Finschia/wasmvm/types"
 )
 
 // Value types

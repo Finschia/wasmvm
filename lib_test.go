@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/line/wasmvm/internal/api"
-	"github.com/line/wasmvm/types"
+	"github.com/Finschia/wasmvm/internal/api"
+	"github.com/Finschia/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

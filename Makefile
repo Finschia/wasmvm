@@ -1,9 +1,9 @@
 .PHONY: all build build-rust build-go test
 
 # Builds the Rust library libwasmvm
-BUILDERS_PREFIX := line/wasmvm-builder
+BUILDERS_PREFIX := finschia/wasmvm-builder
 # Contains a full Go dev environment in order to run Go tests on the built library
-ALPINE_TESTER := line/wasmvm-builder-alpine
+ALPINE_TESTER := finschia/wasmvm-builder-alpine
 
 USER_ID := $(shell id -u)
 USER_GROUP = $(shell id -g)
