@@ -149,8 +149,8 @@ type IBCPacketTimeoutMsg struct {
 }
 
 // TODO: test what the sdk Order.String() represents and how to parse back
-// `Order` in Proto files: https://github.com/Finschia/lbm-sdk/blob/main/proto/ibc/core/channel/v1/channel.proto
-// `ORder` in Auto-gen code: https://github.com/Finschia/lbm-sdk/blob/main/x/ibc/core/04-channel/types/channel.pb.go
+// `Order` in Proto files: https://github.com/Finschia/finschia-sdk/blob/main/proto/ibc/core/channel/v1/channel.proto
+// `ORder` in Auto-gen code: https://github.com/Finschia/finschia-sdk/blob/main/x/ibc/core/04-channel/types/channel.pb.go
 type IBCOrder = string
 
 // These are the only two valid values for IbcOrder
