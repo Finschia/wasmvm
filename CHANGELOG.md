@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.2...HEAD)
+
+### Features
+
+### Fixes
+
+### Changes
+* chore: update libwasmvm cargo author ([#112](https://github.com/Finschia/wasmvm/pull/112))
 
 ## [[v1.1.1-0.11.2](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.1...v1.1.1-0.11.2)] - 2023-03-13
 
