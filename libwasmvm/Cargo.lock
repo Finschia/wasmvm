@@ -225,7 +225,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-crypto"
 version = "1.1.9-0.7.0"
-source = "git+https://github.com/line/cosmwasm?rev=cb1a355d0da35e36a5822df52b69ff8471e81377#cb1a355d0da35e36a5822df52b69ff8471e81377"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9-0.7.0-dynamiclink1#d566925ec73592c51969f7fe1759302030e9dc2b"
 dependencies = [
  "digest 0.10.6",
  "ed25519-zebra",
@@ -238,7 +238,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-derive"
 version = "1.1.9-0.7.0"
-source = "git+https://github.com/line/cosmwasm?rev=cb1a355d0da35e36a5822df52b69ff8471e81377#cb1a355d0da35e36a5822df52b69ff8471e81377"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9-0.7.0-dynamiclink1#d566925ec73592c51969f7fe1759302030e9dc2b"
 dependencies = [
  "convert_case",
  "proc-macro-error",
@@ -247,12 +247,13 @@ dependencies = [
  "serde",
  "serde_json",
  "syn 1.0.109",
+ "wasmer-types",
 ]
 
 [[package]]
 name = "cosmwasm-std"
 version = "1.1.9-0.7.0"
-source = "git+https://github.com/line/cosmwasm?rev=cb1a355d0da35e36a5822df52b69ff8471e81377#cb1a355d0da35e36a5822df52b69ff8471e81377"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9-0.7.0-dynamiclink1#d566925ec73592c51969f7fe1759302030e9dc2b"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -272,7 +273,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-vm"
 version = "1.1.9-0.7.0"
-source = "git+https://github.com/line/cosmwasm?rev=cb1a355d0da35e36a5822df52b69ff8471e81377#cb1a355d0da35e36a5822df52b69ff8471e81377"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9-0.7.0-dynamiclink1#d566925ec73592c51969f7fe1759302030e9dc2b"
 dependencies = [
  "bitflags",
  "bytecheck",
