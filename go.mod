@@ -1,4 +1,4 @@
-module github.com/line/wasmvm
+module github.com/Finschia/wasmvm
 
 go 1.17
 
