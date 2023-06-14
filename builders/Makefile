@@ -1,7 +1,7 @@
 # Versioned by a simple counter that is not bound to a specific CosmWasm version
 # See builders/README.md
 #BUILDERS_PREFIX := cosmwasm/go-ext-builder:0013
-BUILDERS_PREFIX := line/wasmvm-builder
+BUILDERS_PREFIX := finschia/wasmvm-builder
 
 .PHONY: docker-image-centos7
 docker-image-centos7:

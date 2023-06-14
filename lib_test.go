@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/line/wasmvm/internal/api"
-	"github.com/line/wasmvm/types"
+	"github.com/Finschia/wasmvm/internal/api"
+	"github.com/Finschia/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -464,4 +464,10 @@ func TestValidateDynamicLinkInterafce(t *testing.T) {
 		assert.Contains(t, string(res), `add_attribute`)
 		assert.Contains(t, string(res), `add_attributes`)
 	})
+}
+
+func TestLibwasmvmVersion(t *testing.T) {
+	version, err := LibwasmvmVersion()
+	require.NoError(t, err)
+	require.Equal(t, "1.1.1-0.11.2", version)
 }

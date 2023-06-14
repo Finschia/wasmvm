@@ -1,19 +1,19 @@
-# How to contribute to `line/wasmvm`
+# How to contribute to `Finschia/wasmvm`
 
 First of all, thank you so much for taking your time to contribute!
 It will be amazing if you could help us by doing any of the following:
 
-- File an issue in [the issue tracker](https://github.com/line/wasmvm/issues) to report bugs and propose new features and
+- File an issue in [the issue tracker](https://github.com/Finschia/wasmvm/issues) to report bugs and propose new features and
   improvements.
-- Ask a question by creating a new issue in [the issue tracker](https://github.com/line/wasmvm/issues).
-  - Browse [the list of previously answered questions](https://github.com/line/wasmvm/issues?q=label%3Aquestion).
-- Contribute your work by sending [a pull request](https://github.com/line/wasmvm/pulls).
+- Ask a question by creating a new issue in [the issue tracker](https://github.com/Finschia/wasmvm/issues).
+  - Browse [the list of previously answered questions](https://github.com/Finschia/wasmvm/issues?q=label%3Aquestion).
+- Contribute your work by sending [a pull request](https://github.com/Finschia/wasmvm/pulls).
 
 ## Contributor license agreement
 
 When you are sending a pull request and it's a non-trivial change beyond fixing typos, please sign
 the ICLA (individual contributor license agreement). Please
-[contact us](mailto:dl_oss_dev@linecorp.com) if you need the CCLA (corporate contributor license agreement).
+[contact us](mailto:dev@finschia.org) if you need the CCLA (corporate contributor license agreement).
 
 ## Code of conduct
 

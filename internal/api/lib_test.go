@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/line/wasmvm/types"
+	"github.com/Finschia/wasmvm/types"
 )
 
 const (
@@ -1070,7 +1070,7 @@ func TestCustomReflectQuerier(t *testing.T) {
 	type QueryMsg struct {
 		Capitalized *CapitalizedQuery `json:"capitalized,omitempty"`
 		// There are more queries but we don't use them yet
-		// https://github.com/line/cosmwasm/blob/v0.14.0-0.4.0/contracts/reflect/src/msg.rs#L38-L57
+		// https://github.com/Finschia/cosmwasm/blob/v0.14.0-0.4.0/contracts/reflect/src/msg.rs#L38-L57
 	}
 
 	type CapitalizedResponse struct {
