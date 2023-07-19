@@ -121,6 +121,7 @@ release-build:
 	make release-build-linux
 	make release-build-macos
 	make release-build-windows
+	make release-build-macos-static
 
 test-alpine: release-build-alpine
 # try running go tests using this lib with muslc
