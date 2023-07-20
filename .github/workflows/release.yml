@@ -66,14 +66,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build docker image
-        run: cd builders && make docker-image-alpine
+        run: cd builders && make docker-image-alpine && make docker-image-cross
       - name: Build & Test static library
         run: make release-build-alpine
+      - name: Build static library for MacOS
+        run: make release-build-macos-static
       - name: Collect artifacts
         run: |
           mkdir artifacts
           cp ./internal/api/libwasmvm_muslc.a ./artifacts/libwasmvm_muslc.x86_64.a
           cp ./internal/api/libwasmvm_muslc.aarch64.a ./artifacts/libwasmvm_muslc.aarch64.a
+          cp ./internal/api/libwasmvmstatic_darwin.a ./artifacts/libwasmvmstatic_darwin.a
       - name: Create checksums
         working-directory: ./artifacts
         run: sha256sum * > checksums.txt && cat checksums.txt

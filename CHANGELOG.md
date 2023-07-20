@@ -3,6 +3,7 @@
 ## [Unreleased](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.2...HEAD)
 
 ### Features
+* feat: Add static build for macos ([#115](https://github.com/Finschia/wasmvm/pull/115))
 
 ### Fixes
 
