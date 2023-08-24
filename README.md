@@ -1,6 +1,6 @@
 # wasmvm
 
-[![Tests](https://github.com/Finschia/wasmvm/actions/workflows/tests.yml/badge.svg)](https://github.com/Finschia/wasmvm/actions/workflows/tests.yml)
+[![Builds And Tests](https://github.com/Finschia/wasmvm/actions/workflows/builds_and_tests.yml/badge.svg)](https://github.com/Finschia/wasmvm/actions/workflows/bulids_and_tests.yml)
 
 This repository is forked from [CosmWasm/wasmvm](https://github.com/CosmWasm/wasmvm)
 
