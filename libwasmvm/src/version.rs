@@ -46,11 +46,10 @@ mod tests {
             "Invalid patch component: '{}'",
             components[2]
         );
-        if let Some(prerelease) = parts.next() {
-            assert!(prerelease
+        while let Some(prerelease_part) = parts.next() {
+            assert!(prerelease_part
                 .chars()
                 .all(|c| c == '.' || c.is_ascii_alphanumeric()));
         }
-        assert_eq!(parts.next(), None);
     }
 }
