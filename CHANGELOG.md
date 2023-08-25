@@ -1,15 +1,23 @@
 # Changelog
 
-## [Unreleased](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.2...HEAD)
 
-### Features
-* feat: Add static build for macos ([#115](https://github.com/Finschia/wasmvm/pull/115))
-
-### Fixes
+## [[v1.1.1-0.11.3-rc1](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.2...v1.1.1-0.11.3-rc1)] - 2023-08-24
 
 ### Changes
-* chore: update libwasmvm cargo author ([#112](https://github.com/Finschia/wasmvm/pull/112))
-* build: update golang version to 1.20 ([#118](https://github.com/Finschia/wasmvm/pull/118))
+
+* enable ci recognize -rcX version ([#125](https://github.com/Finschia/wasmvm/pull/125))
+* version bump to 1.1.1-0.11.3-rc1 ([#122](https://github.com/Finschia/wasmvm/pull/122))
+* update golang version to 1.20 ([#118](https://github.com/Finschia/wasmvm/pull/118))
+* replace line modules with Finschia's ([#109](https://github.com/Finschia/wasmvm/pull/109))
+### Features
+
+
+* add codeowners file ([#100](https://github.com/Finschia/wasmvm/pull/100))
+### Fixes
+
+
+* fix a test for rustc 1.68 or later ([#108](https://github.com/Finschia/wasmvm/pull/108))
+* wrong tag reference (v1.1.1-0.11.2) ([#95](https://github.com/Finschia/wasmvm/pull/95))
 
 ## [[v1.1.1-0.11.2](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.1...v1.1.1-0.11.2)] - 2023-03-13
 
