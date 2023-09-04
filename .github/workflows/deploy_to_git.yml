@@ -95,12 +95,10 @@ jobs:
         run: |
           mv ./artifacts/linux-shared-library/* ./internal/api
           mv ./artifacts/macos-shared-library/* ./internal/api
-          cd ./internal/api
-          new_checksums=$(shasum -a 256 *.so *.dylib)
-          old_checksums=$(cat checksums.txt)
-          if [[ "$new_checksums" != "$old_checksums" ]] ; then
+          chmod 755 internal/api/*.{so,dylib}
+          git add .
+          if ! git diff --cached --exit-code ; then
             echo "need_update=true" >> "$GITHUB_OUTPUT"
-            echo "$new_checksums" > checksums.txt
           else
             echo "need_update=false" >> "$GITHUB_OUTPUT"
           fi
@@ -117,7 +115,6 @@ jobs:
         run: |
           git config user.name  "finschia-auto-pr[bot]"
           git config user.email "141415241+finschia-auto-pr[bot]@users.noreply.github.com"
-          git add .
           git commit -m "chore: auto generate shared library"
       - name: Create pull request
         if: steps.cd.outputs.need_update=='true'
