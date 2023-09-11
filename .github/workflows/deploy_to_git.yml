@@ -16,6 +16,6 @@ jobs:
         with:
           app_id: ${{ secrets.FINSCHIA_AUTO_PR_APP_ID }}
           private_key: ${{ secrets.FINSCHIA_AUTO_PR_APP_PRIVATE_KEY }}
-      # https://github.com/tibdex/github-app-token/issues/54#issuecomment-1410471261
+        # https://github.com/tibdex/github-app-token/issues/54#issuecomment-1410471261
         env:
           OPENSSL_CONF: /dev/null
