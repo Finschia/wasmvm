@@ -1,6 +1,6 @@
 name: Deploy to Git
 
-on: [pull_request]
+on: push
 
 permissions:
   pull-requests: write
