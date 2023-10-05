@@ -8,7 +8,7 @@
 ## Fixes
 * hotfix automatic build shared library ci ([#127](https://github.com/Finschia/wasmvm/pull/127))
 
-## [[1.1.1-0.11.4-rc1](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.3-rc1...1.1.1-0.11.4-rc1)] - 2023-08-25
+## [[1.1.1-0.11.4-rc1](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.3-rc1...v1.1.1-0.11.4-rc1)] - 2023-08-25
 ### Changes
 * bumpup version to 1.1.1-0.11.4-rc1 ([#126](https://github.com/Finschia/wasmvm/pull/125))
 
