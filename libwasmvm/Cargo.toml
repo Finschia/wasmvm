@@ -1,6 +1,6 @@
 [package]
 name = "wasmvm"
-version = "1.1.1-0.11.5"
+version = "1.1.1+0.11.5"
 publish = false
 authors = ["Finschia Foundation"]
 edition = "2021"
