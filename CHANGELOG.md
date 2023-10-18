@@ -1,5 +1,9 @@
 # Changelog
 
+## [[1.1.1-0.11.6](https://github.com/Finschia/wasmvm/compare/v1.1.1+0.11.5...v1.1.1-0.11.6)] - 2023-10-18
+### Changes
+* revert: use pre-release versioning and set version to 1.1.1-0.11.6 ([#130](https://github.com/Finschia/wasmvm/pull/130))
+
 ## [[1.1.1+0.11.5](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.4-rc1...v1.1.1+0.11.5)] - 2023-10-5
 ### Changes
 * set version to 1.1.1+0.11.5 for applying v1.1.9+0.8.1 ([#128](https://github.com/Finschia/wasmvm/pull/128))

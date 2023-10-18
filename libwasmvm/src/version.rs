@@ -27,7 +27,7 @@ mod tests {
         let version_str = unsafe { CStr::from_ptr(version_ptr) }.to_str().unwrap();
         // assert_eq!(version_str, "1.2.3");
 
-        let mut parts = version_str.split('+');
+        let mut parts = version_str.split('-');
         let version_core = parts.next().unwrap();
         let components = version_core.split('.').collect::<Vec<_>>();
         assert_eq!(components.len(), 3);
