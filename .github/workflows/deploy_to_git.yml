@@ -5,10 +5,14 @@ on:
     branches:
       - main
       - release/*
+      - hotfix**
 
 permissions:
   pull-requests: write
   contents: write
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build_shared_library:
@@ -75,6 +79,8 @@ jobs:
   deploy_to_git:
     runs-on: ubuntu-latest
     needs: build_shared_library
+    outputs:
+      updated: ${{ steps.cd.outputs.need_update }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -154,3 +160,91 @@ jobs:
         run: gh pr merge --auto --squash --delete-branch ${{ steps.cpr.outputs.pull-request-number }}
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+
+  get-version: # emit package version using `cargo tree -i`
+    name: Get Package Version
+    runs-on: ubuntu-latest
+    needs: [build_shared_library, deploy_to_git]
+    if: |
+      always() && 
+      ( needs.build_shared_library.result=='success' || needs.build_shared_library.result=='skipped' ) &&
+      ( github.event.pusher.name == 'finschia-auto-pr[bot]' || needs.deploy_to_git.outputs.updated=='false' )
+    outputs:
+      package-version: ${{ steps.get-package-version.outputs.version }}
+      latest-tag: ${{ steps.get-latest-tag.outputs.tag }}
+    steps:
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.60.0
+          profile: minimal
+          override: true
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Get latest tag
+        id: get-latest-tag
+        uses: actions-ecosystem/action-get-latest-tag@v1
+      - name: Get package version
+        id: get-package-version
+        working-directory: ./libwasmvm
+        run: |
+          VERSION=$(cargo tree -i wasmvm | grep -oE "[0-9]+(\.[0-9]+){2}[\+\-][0-9]+(\.[0-9]+){2}(-[0-9a-zA-Z.]+)*(\+[0-9a-zA-Z.\-]+)*")
+            echo ::set-output name=version::v$VERSION
+
+  push-tag: # if the version does not exist as git tag, push it
+    name: Push Tag
+    needs: [build_shared_library, get-version]
+    if: |
+      always() && 
+      ( needs.build_shared_library.result=='success' || needs.build_shared_library.result=='skipped' ) &&
+      ( needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push Tag to GitHub
+        run: |
+          curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+          -d "{\"ref\": \"refs/tags/${{ needs.get-version.outputs.package-version }}\", \"sha\": \"${GITHUB_SHA}\"}" \
+          "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs"
+
+  update-releases:
+    name: Update releases
+    needs: [build_shared_library, push-tag]
+    if: |
+      always() && 
+      ( needs.build_shared_library.result=='success' || needs.build_shared_library.result=='skipped' ) &&
+      ( needs.push-tag.result=='success' )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: set up
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+        id: go
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build docker image
+        run: cd builders && make docker-image-alpine && make docker-image-cross
+      - name: Build & Test static library
+        run: make release-build-alpine
+      - name: Build static library for MacOS
+        run: make release-build-macos-static
+      - name: Collect artifacts
+        run: |
+          mkdir artifacts
+          cp ./internal/api/libwasmvm_muslc.a ./artifacts/libwasmvm_muslc.x86_64.a
+          cp ./internal/api/libwasmvm_muslc.aarch64.a ./artifacts/libwasmvm_muslc.aarch64.a
+          cp ./internal/api/libwasmvmstatic_darwin.a ./artifacts/libwasmvmstatic_darwin.a
+      - name: Create checksums
+        working-directory: ./artifacts
+        run: sha256sum * > checksums.txt && cat checksums.txt
+      - name: Create Release
+        uses: softprops/action-gh-release@v0.1.13
+        with:
+          tag_name: ${{ needs.get-version.outputs.package-version }}
+          body: ${{ github.event.pull_request.body }}
+          files: |
+            ./artifacts/*
+          draft: false
+          prerelease: false
