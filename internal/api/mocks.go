@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	dbm "github.com/tendermint/tm-db"
 
+	"github.com/Finschia/wasmvm/internal/api/testdb"
 	"github.com/Finschia/wasmvm/types"
 )
 
@@ -192,28 +192,28 @@ type ErrorGasOverflow struct {
 }
 
 type MockGasMeter interface {
-	GasMeter
-	ConsumeGas(amount Gas, descriptor string)
+	types.GasMeter
+	ConsumeGas(amount types.Gas, descriptor string)
 }
 
 type mockGasMeter struct {
-	limit    Gas
-	consumed Gas
+	limit    types.Gas
+	consumed types.Gas
 }
 
 // NewMockGasMeter returns a reference to a new mockGasMeter.
-func NewMockGasMeter(limit Gas) MockGasMeter {
+func NewMockGasMeter(limit types.Gas) MockGasMeter {
 	return &mockGasMeter{
 		limit:    limit,
 		consumed: 0,
 	}
 }
 
-func (g *mockGasMeter) GasConsumed() Gas {
+func (g *mockGasMeter) GasConsumed() types.Gas {
 	return g.consumed
 }
 
-func (g *mockGasMeter) Limit() Gas {
+func (g *mockGasMeter) Limit() types.Gas {
 	return g.limit
 }
 
@@ -227,7 +227,7 @@ func addUint64Overflow(a, b uint64) (uint64, bool) {
 	return a + b, false
 }
 
-func (g *mockGasMeter) ConsumeGas(amount Gas, descriptor string) {
+func (g *mockGasMeter) ConsumeGas(amount types.Gas, descriptor string) {
 	var overflow bool
 	// TODO: Should we set the consumed field after overflow checking?
 	g.consumed, overflow = addUint64Overflow(g.consumed, amount)
@@ -249,19 +249,19 @@ func (g *mockGasMeter) ConsumeGas(amount Gas, descriptor string) {
 // Also note we do not charge for each read on an iterator (out of simplicity and not needed for tests)
 const (
 	GetPrice    uint64 = 99000
-	SetPrice           = 187000
-	RemovePrice        = 142000
-	RangePrice         = 261000
+	SetPrice    uint64 = 187000
+	RemovePrice uint64 = 142000
+	RangePrice  uint64 = 261000
 )
 
 type Lookup struct {
-	db    *dbm.MemDB
+	db    *testdb.MemDB
 	meter MockGasMeter
 }
 
 func NewLookup(meter MockGasMeter) *Lookup {
 	return &Lookup{
-		db:    dbm.NewMemDB(),
+		db:    testdb.NewMemDB(),
 		meter: meter,
 	}
 }
@@ -305,7 +305,7 @@ func (l Lookup) Delete(key []byte) {
 }
 
 // Iterator wraps the underlying DB's Iterator method panicing on error.
-func (l Lookup) Iterator(start, end []byte) dbm.Iterator {
+func (l Lookup) Iterator(start, end []byte) types.Iterator {
 	l.meter.ConsumeGas(RangePrice, "range")
 	iter, err := l.db.Iterator(start, end)
 	if err != nil {
@@ -316,7 +316,7 @@ func (l Lookup) Iterator(start, end []byte) dbm.Iterator {
 }
 
 // ReverseIterator wraps the underlying DB's ReverseIterator method panicing on error.
-func (l Lookup) ReverseIterator(start, end []byte) dbm.Iterator {
+func (l Lookup) ReverseIterator(start, end []byte) types.Iterator {
 	l.meter.ConsumeGas(RangePrice, "range")
 	iter, err := l.db.ReverseIterator(start, end)
 	if err != nil {
@@ -326,9 +326,9 @@ func (l Lookup) ReverseIterator(start, end []byte) dbm.Iterator {
 	return iter
 }
 
-var _ KVStore = (*Lookup)(nil)
+var _ types.KVStore = (*Lookup)(nil)
 
-/***** Mock GoAPI ****/
+/***** Mock types.GoAPI ****/
 
 const CanonicalLength = 32
 
@@ -361,8 +361,8 @@ func MockHumanAddress(canon []byte) (string, uint64, error) {
 	return human, CostHuman, nil
 }
 
-func NewMockAPI() *GoAPI {
-	return &GoAPI{
+func NewMockAPI() *types.GoAPI {
+	return &types.GoAPI{
 		HumanAddress:     MockHumanAddress,
 		CanonicalAddress: MockCanonicalAddress,
 	}
@@ -391,20 +391,20 @@ type MockQuerier struct {
 	usedGas uint64
 }
 
-var _ types.Querier = MockQuerier{}
+var _ types.Querier = &MockQuerier{}
 
-func DefaultQuerier(contractAddr string, coins types.Coins) Querier {
+func DefaultQuerier(contractAddr string, coins types.Coins) types.Querier {
 	balances := map[string]types.Coins{
 		contractAddr: coins,
 	}
-	return MockQuerier{
+	return &MockQuerier{
 		Bank:    NewBankQuerier(balances),
 		Custom:  NoCustom{},
 		usedGas: 0,
 	}
 }
 
-func (q MockQuerier) Query(request types.QueryRequest, _gasLimit uint64) ([]byte, error) {
+func (q *MockQuerier) Query(request types.QueryRequest, _gasLimit uint64) ([]byte, error) {
 	marshaled, err := json.Marshal(request)
 	if err != nil {
 		return nil, err
@@ -417,10 +417,10 @@ func (q MockQuerier) Query(request types.QueryRequest, _gasLimit uint64) ([]byte
 		return q.Custom.Query(request.Custom)
 	}
 	if request.Staking != nil {
-		return nil, types.UnsupportedRequest{"staking"}
+		return nil, types.UnsupportedRequest{Kind: "staking"}
 	}
 	if request.Wasm != nil {
-		return nil, types.UnsupportedRequest{"wasm"}
+		return nil, types.UnsupportedRequest{Kind: "wasm"}
 	}
 	return nil, types.Unknown{}
 }
@@ -466,7 +466,7 @@ func (q BankQuerier) Query(request *types.BankQuery) ([]byte, error) {
 		}
 		return json.Marshal(resp)
 	}
-	return nil, types.UnsupportedRequest{"Empty BankQuery"}
+	return nil, types.UnsupportedRequest{Kind: "Empty BankQuery"}
 }
 
 type CustomQuerier interface {
@@ -478,7 +478,7 @@ type NoCustom struct{}
 var _ CustomQuerier = NoCustom{}
 
 func (q NoCustom) Query(request json.RawMessage) ([]byte, error) {
-	return nil, types.UnsupportedRequest{"custom"}
+	return nil, types.UnsupportedRequest{Kind: "custom"}
 }
 
 // ReflectCustom fulfills the requirements for testing `reflect` contract
@@ -622,7 +622,7 @@ func TestReflectCustomQuerier(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, resp.Msg, "PONG")
 
-	// try captial
+	// try capital
 	msg2, err := json.Marshal(CustomQuery{Capitalized: &CapitalizedQuery{Text: "small."}})
 	require.NoError(t, err)
 	bz, err = q.Query(msg2)

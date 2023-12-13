@@ -26,7 +26,9 @@ type (
 )
 
 // Pointers
-type cu8_ptr = *C.uint8_t
+type (
+	cu8_ptr = *C.uint8_t
+)
 
 type Cache struct {
 	ptr *C.cache_t
@@ -34,18 +36,18 @@ type Cache struct {
 
 type Querier = types.Querier
 
-func InitCache(dataDir string, supportedFeatures string, cacheSize uint32, instanceMemoryLimit uint32) (Cache, error) {
+func InitCache(dataDir string, supportedCapabilities string, cacheSize uint32, instanceMemoryLimit uint32) (Cache, error) {
 	dataDirBytes := []byte(dataDir)
-	supportedFeaturesBytes := []byte(supportedFeatures)
+	supportedCapabilitiesBytes := []byte(supportedCapabilities)
 
 	d := makeView(dataDirBytes)
 	defer runtime.KeepAlive(dataDirBytes)
-	f := makeView(supportedFeaturesBytes)
-	defer runtime.KeepAlive(supportedFeaturesBytes)
+	capabilitiesView := makeView(supportedCapabilitiesBytes)
+	defer runtime.KeepAlive(supportedCapabilitiesBytes)
 
-	errmsg := newUnmanagedVector(nil)
+	errmsg := uninitializedUnmanagedVector()
 
-	ptr, err := C.init_cache(d, f, cu32(cacheSize), cu32(instanceMemoryLimit), &errmsg)
+	ptr, err := C.init_cache(d, capabilitiesView, cu32(cacheSize), cu32(instanceMemoryLimit), &errmsg)
 	if err != nil {
 		return Cache{}, errorWithMessage(err, errmsg)
 	}
@@ -56,21 +58,43 @@ func ReleaseCache(cache Cache) {
 	C.release_cache(cache.ptr)
 }
 
-func Create(cache Cache, wasm []byte) ([]byte, error) {
+func StoreCode(cache Cache, wasm []byte) ([]byte, error) {
 	w := makeView(wasm)
 	defer runtime.KeepAlive(wasm)
-	errmsg := newUnmanagedVector(nil)
-	checksum, err := C.save_wasm(cache.ptr, w, &errmsg)
+	errmsg := uninitializedUnmanagedVector()
+	checksum, err := C.save_wasm(cache.ptr, w, cbool(false), &errmsg)
 	if err != nil {
 		return nil, errorWithMessage(err, errmsg)
 	}
 	return copyAndDestroyUnmanagedVector(checksum), nil
 }
 
+func StoreCodeUnchecked(cache Cache, wasm []byte) ([]byte, error) {
+	w := makeView(wasm)
+	defer runtime.KeepAlive(wasm)
+	errmsg := uninitializedUnmanagedVector()
+	checksum, err := C.save_wasm(cache.ptr, w, cbool(true), &errmsg)
+	if err != nil {
+		return nil, errorWithMessage(err, errmsg)
+	}
+	return copyAndDestroyUnmanagedVector(checksum), nil
+}
+
+func RemoveCode(cache Cache, checksum []byte) error {
+	cs := makeView(checksum)
+	defer runtime.KeepAlive(checksum)
+	errmsg := uninitializedUnmanagedVector()
+	_, err := C.remove_wasm(cache.ptr, cs, &errmsg)
+	if err != nil {
+		return errorWithMessage(err, errmsg)
+	}
+	return nil
+}
+
 func GetCode(cache Cache, checksum []byte) ([]byte, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
-	errmsg := newUnmanagedVector(nil)
+	errmsg := uninitializedUnmanagedVector()
 	wasm, err := C.load_wasm(cache.ptr, cs, &errmsg)
 	if err != nil {
 		return nil, errorWithMessage(err, errmsg)
@@ -81,7 +105,7 @@ func GetCode(cache Cache, checksum []byte) ([]byte, error) {
 func Pin(cache Cache, checksum []byte) error {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
-	errmsg := newUnmanagedVector(nil)
+	errmsg := uninitializedUnmanagedVector()
 	_, err := C.pin(cache.ptr, cs, &errmsg)
 	if err != nil {
 		return errorWithMessage(err, errmsg)
@@ -92,7 +116,7 @@ func Pin(cache Cache, checksum []byte) error {
 func Unpin(cache Cache, checksum []byte) error {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
-	errmsg := newUnmanagedVector(nil)
+	errmsg := uninitializedUnmanagedVector()
 	_, err := C.unpin(cache.ptr, cs, &errmsg)
 	if err != nil {
 		return errorWithMessage(err, errmsg)
@@ -103,7 +127,7 @@ func Unpin(cache Cache, checksum []byte) error {
 func AnalyzeCode(cache Cache, checksum []byte) (*types.AnalysisReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
-	errmsg := newUnmanagedVector(nil)
+	errmsg := uninitializedUnmanagedVector()
 	report, err := C.analyze_code(cache.ptr, cs, &errmsg)
 	if err != nil {
 		return nil, errorWithMessage(err, errmsg)
@@ -118,7 +142,7 @@ func AnalyzeCode(cache Cache, checksum []byte) (*types.AnalysisReport, error) {
 }
 
 func GetMetrics(cache Cache) (*types.Metrics, error) {
-	errmsg := newUnmanagedVector(nil)
+	errmsg := uninitializedUnmanagedVector()
 	metrics, err := C.get_metrics(cache.ptr, &errmsg)
 	if err != nil {
 		return nil, errorWithMessage(err, errmsg)
@@ -142,13 +166,13 @@ func Instantiate(
 	env []byte,
 	info []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -165,15 +189,15 @@ func Instantiate(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.instantiate(cache.ptr, cs, e, i, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.instantiate(cache.ptr, cs, e, i, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func Execute(
@@ -182,13 +206,13 @@ func Execute(
 	env []byte,
 	info []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -205,15 +229,15 @@ func Execute(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.execute(cache.ptr, cs, e, i, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.execute(cache.ptr, cs, e, i, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func Migrate(
@@ -221,13 +245,13 @@ func Migrate(
 	checksum []byte,
 	env []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -242,15 +266,15 @@ func Migrate(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.migrate(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.migrate(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func Sudo(
@@ -258,13 +282,13 @@ func Sudo(
 	checksum []byte,
 	env []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -279,15 +303,15 @@ func Sudo(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.sudo(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.sudo(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func Reply(
@@ -295,13 +319,13 @@ func Reply(
 	checksum []byte,
 	env []byte,
 	reply []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -316,15 +340,15 @@ func Reply(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.reply(cache.ptr, cs, e, r, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.reply(cache.ptr, cs, e, r, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func Query(
@@ -332,13 +356,13 @@ func Query(
 	checksum []byte,
 	env []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -353,15 +377,15 @@ func Query(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.query(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.query(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func IBCChannelOpen(
@@ -369,13 +393,13 @@ func IBCChannelOpen(
 	checksum []byte,
 	env []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -390,15 +414,15 @@ func IBCChannelOpen(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.ibc_channel_open(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_channel_open(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func IBCChannelConnect(
@@ -406,13 +430,13 @@ func IBCChannelConnect(
 	checksum []byte,
 	env []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -427,15 +451,15 @@ func IBCChannelConnect(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.ibc_channel_connect(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_channel_connect(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func IBCChannelClose(
@@ -443,13 +467,13 @@ func IBCChannelClose(
 	checksum []byte,
 	env []byte,
 	msg []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -464,15 +488,15 @@ func IBCChannelClose(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.ibc_channel_close(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_channel_close(cache.ptr, cs, e, m, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func IBCPacketReceive(
@@ -480,13 +504,13 @@ func IBCPacketReceive(
 	checksum []byte,
 	env []byte,
 	packet []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -501,15 +525,15 @@ func IBCPacketReceive(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.ibc_packet_receive(cache.ptr, cs, e, pa, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_packet_receive(cache.ptr, cs, e, pa, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func IBCPacketAck(
@@ -517,13 +541,13 @@ func IBCPacketAck(
 	checksum []byte,
 	env []byte,
 	ack []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -538,15 +562,15 @@ func IBCPacketAck(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.ibc_packet_ack(cache.ptr, cs, e, ac, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_packet_ack(cache.ptr, cs, e, ac, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
 }
 
 func IBCPacketTimeout(
@@ -554,13 +578,13 @@ func IBCPacketTimeout(
 	checksum []byte,
 	env []byte,
 	packet []byte,
-	gasMeter *GasMeter,
-	store KVStore,
-	api *GoAPI,
+	gasMeter *types.GasMeter,
+	store types.KVStore,
+	api *types.GoAPI,
 	querier *Querier,
 	gasLimit uint64,
 	printDebug bool,
-) ([]byte, uint64, error) {
+) ([]byte, types.GasReport, error) {
 	cs := makeView(checksum)
 	defer runtime.KeepAlive(checksum)
 	e := makeView(env)
@@ -575,15 +599,24 @@ func IBCPacketTimeout(
 	db := buildDB(&dbState, gasMeter)
 	a := buildAPI(api)
 	q := buildQuerier(querier)
-	var gasUsed cu64
-	errmsg := newUnmanagedVector(nil)
+	var gasReport C.GasReport
+	errmsg := uninitializedUnmanagedVector()
 
-	res, err := C.ibc_packet_timeout(cache.ptr, cs, e, pa, db, a, q, cu64(gasLimit), cbool(printDebug), &gasUsed, &errmsg)
+	res, err := C.ibc_packet_timeout(cache.ptr, cs, e, pa, db, a, q, cu64(gasLimit), cbool(printDebug), &gasReport, &errmsg)
 	if err != nil && err.(syscall.Errno) != C.ErrnoValue_Success {
 		// Depending on the nature of the error, `gasUsed` will either have a meaningful value, or just 0.
-		return nil, uint64(gasUsed), errorWithMessage(err, errmsg)
+		return nil, convertGasReport(gasReport), errorWithMessage(err, errmsg)
 	}
-	return copyAndDestroyUnmanagedVector(res), uint64(gasUsed), nil
+	return copyAndDestroyUnmanagedVector(res), convertGasReport(gasReport), nil
+}
+
+func convertGasReport(report C.GasReport) types.GasReport {
+	return types.GasReport{
+		Limit:          uint64(report.limit),
+		Remaining:      uint64(report.remaining),
+		UsedExternally: uint64(report.used_externally),
+		UsedInternally: uint64(report.used_internally),
+	}
 }
 
 /**** To error module ***/

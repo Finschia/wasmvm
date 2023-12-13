@@ -2,6 +2,8 @@
 
 use std::convert::TryInto;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::time::SystemTime;
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use cosmwasm_vm::{
     call_execute_raw, call_ibc_channel_close_raw, call_ibc_channel_connect_raw,
@@ -11,13 +13,14 @@ use cosmwasm_vm::{
 };
 
 use crate::api::GoApi;
-use crate::args::{ARG1, ARG2, ARG3, CACHE_ARG, CHECKSUM_ARG, GAS_USED_ARG};
+use crate::args::{ARG1, ARG2, ARG3, CACHE_ARG, CHECKSUM_ARG, GAS_REPORT_ARG};
 use crate::cache::{cache_t, to_cache};
 use crate::db::Db;
 use crate::error::{handle_c_error_binary, Error};
 use crate::memory::{ByteSliceView, UnmanagedVector};
 use crate::querier::GoQuerier;
 use crate::storage::GoStorage;
+use crate::GasReport;
 
 fn into_backend(db: Db, api: GoApi, querier: GoQuerier) -> Backend<GoApi, GoStorage, GoQuerier> {
     Backend {
@@ -39,7 +42,7 @@ pub extern "C" fn instantiate(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_3_args(
@@ -54,7 +57,7 @@ pub extern "C" fn instantiate(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -71,7 +74,7 @@ pub extern "C" fn execute(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_3_args(
@@ -86,7 +89,7 @@ pub extern "C" fn execute(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -102,7 +105,7 @@ pub extern "C" fn migrate(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -116,7 +119,7 @@ pub extern "C" fn migrate(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -132,7 +135,7 @@ pub extern "C" fn sudo(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -146,7 +149,7 @@ pub extern "C" fn sudo(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -162,7 +165,7 @@ pub extern "C" fn reply(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -176,7 +179,7 @@ pub extern "C" fn reply(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -192,7 +195,7 @@ pub extern "C" fn query(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -206,7 +209,7 @@ pub extern "C" fn query(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -222,7 +225,7 @@ pub extern "C" fn ibc_channel_open(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -236,7 +239,7 @@ pub extern "C" fn ibc_channel_open(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -252,7 +255,7 @@ pub extern "C" fn ibc_channel_connect(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -266,7 +269,7 @@ pub extern "C" fn ibc_channel_connect(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -282,7 +285,7 @@ pub extern "C" fn ibc_channel_close(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -296,7 +299,7 @@ pub extern "C" fn ibc_channel_close(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -312,7 +315,7 @@ pub extern "C" fn ibc_packet_receive(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -326,7 +329,7 @@ pub extern "C" fn ibc_packet_receive(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -342,7 +345,7 @@ pub extern "C" fn ibc_packet_ack(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -356,7 +359,7 @@ pub extern "C" fn ibc_packet_ack(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -372,7 +375,7 @@ pub extern "C" fn ibc_packet_timeout(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     call_2_args(
@@ -386,7 +389,7 @@ pub extern "C" fn ibc_packet_timeout(
         querier,
         gas_limit,
         print_debug,
-        gas_used,
+        gas_report,
         error_msg,
     )
 }
@@ -411,7 +414,7 @@ fn call_2_args(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     let r = match to_cache(cache) {
@@ -427,10 +430,13 @@ fn call_2_args(
                 querier,
                 gas_limit,
                 print_debug,
-                gas_used,
+                gas_report,
             )
         }))
-        .unwrap_or_else(|_| Err(Error::panic())),
+        .unwrap_or_else(|err| {
+            eprintln!("Panic in do_call_2_args: {err:?}");
+            Err(Error::panic())
+        }),
         None => Err(Error::unset_arg(CACHE_ARG)),
     };
     let data = handle_c_error_binary(r, error_msg);
@@ -449,9 +455,9 @@ fn do_call_2_args(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
 ) -> Result<Vec<u8>, Error> {
-    let gas_used = gas_used.ok_or_else(|| Error::empty_arg(GAS_USED_ARG))?;
+    let gas_report = gas_report.ok_or_else(|| Error::empty_arg(GAS_REPORT_ARG))?;
     let checksum: Checksum = checksum
         .read()
         .ok_or_else(|| Error::unset_arg(CHECKSUM_ARG))?
@@ -465,10 +471,19 @@ fn do_call_2_args(
         print_debug,
     };
     let mut instance = cache.get_instance(&checksum, backend, options)?;
+
+    // If print_debug = false, use default debug handler from cosmwasm-vm, which discards messages
+    if print_debug {
+        instance.set_debug_handler(|msg, info| {
+            let t = now_rfc3339();
+            let gas = info.gas_remaining;
+            eprintln!("[{t}]: {msg} (gas remaining: {gas})");
+        });
+    }
+
     // We only check this result after reporting gas usage and returning the instance into the cache.
     let res = vm_fn(&mut instance, arg1, arg2);
-    *gas_used = instance.create_gas_report().used_internally;
-    instance.recycle();
+    *gas_report = instance.create_gas_report().into();
     Ok(res?)
 }
 
@@ -494,7 +509,7 @@ fn call_3_args(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
     error_msg: Option<&mut UnmanagedVector>,
 ) -> UnmanagedVector {
     let r = match to_cache(cache) {
@@ -511,10 +526,13 @@ fn call_3_args(
                 querier,
                 gas_limit,
                 print_debug,
-                gas_used,
+                gas_report,
             )
         }))
-        .unwrap_or_else(|_| Err(Error::panic())),
+        .unwrap_or_else(|err| {
+            eprintln!("Panic in do_call_3_args: {err:?}");
+            Err(Error::panic())
+        }),
         None => Err(Error::unset_arg(CACHE_ARG)),
     };
     let data = handle_c_error_binary(r, error_msg);
@@ -533,9 +551,9 @@ fn do_call_3_args(
     querier: GoQuerier,
     gas_limit: u64,
     print_debug: bool,
-    gas_used: Option<&mut u64>,
+    gas_report: Option<&mut GasReport>,
 ) -> Result<Vec<u8>, Error> {
-    let gas_used = gas_used.ok_or_else(|| Error::empty_arg(GAS_USED_ARG))?;
+    let gas_report = gas_report.ok_or_else(|| Error::empty_arg(GAS_REPORT_ARG))?;
     let checksum: Checksum = checksum
         .read()
         .ok_or_else(|| Error::unset_arg(CHECKSUM_ARG))?
@@ -550,9 +568,23 @@ fn do_call_3_args(
         print_debug,
     };
     let mut instance = cache.get_instance(&checksum, backend, options)?;
+
+    // If print_debug = false, use default debug handler from cosmwasm-vm, which discards messages
+    if print_debug {
+        instance.set_debug_handler(|msg, info| {
+            let t = now_rfc3339();
+            let gas = info.gas_remaining;
+            eprintln!("[{t}]: {msg} (gas remaining: {gas})");
+        });
+    }
+
     // We only check this result after reporting gas usage and returning the instance into the cache.
     let res = vm_fn(&mut instance, arg1, arg2, arg3);
-    *gas_used = instance.create_gas_report().used_internally;
-    instance.recycle();
+    *gas_report = instance.create_gas_report().into();
     Ok(res?)
+}
+
+fn now_rfc3339() -> String {
+    let dt = OffsetDateTime::from(SystemTime::now());
+    dt.format(&Rfc3339).unwrap_or_default()
 }

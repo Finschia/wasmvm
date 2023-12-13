@@ -6,12 +6,10 @@
 .vscode
 
 # no static libraries (35MB+)
-lib*.a
+/internal/api/lib*.a
 
 # artifacts from compile tests
-artifacts/
-muslc.exe
-static.exe
+/build/
 /demo
 tmp
 a.out
