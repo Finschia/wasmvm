@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.6...HEAD)
+
+### Features
+* bump up wasmvm from v1.1.1 to v1.4.1 ([#136](https://github.com/Finschia/wasmvm/pull/136))
+
 ## [[1.1.1-0.11.6](https://github.com/Finschia/wasmvm/compare/v1.1.1+0.11.5...v1.1.1-0.11.6)] - 2023-10-18
 ### Changes
 * revert: use pre-release versioning and set version to 1.1.1-0.11.6 ([#130](https://github.com/Finschia/wasmvm/pull/130))
