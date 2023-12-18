@@ -1,3 +1,7 @@
+//go:build cgo
+
+// This file contains the part of the API that is exposed when cgo is enabled.
+
 package cosmwasm
 
 import (
@@ -7,24 +11,6 @@ import (
 	"github.com/Finschia/wasmvm/internal/api"
 	"github.com/Finschia/wasmvm/types"
 )
-
-// Checksum represents a hash of the Wasm bytecode that serves as an ID. Must be generated from this library.
-type Checksum []byte
-
-// WasmCode is an alias for raw bytes of the wasm compiled code
-type WasmCode []byte
-
-// KVStore is a reference to some sub-kvstore that is valid for one instance of a code
-type KVStore = api.KVStore
-
-// GoAPI is a reference to some "precompiles", go callbacks
-type GoAPI = api.GoAPI
-
-// Querier lets us make read-only queries on other modules
-type Querier = types.Querier
-
-// GasMeter is a read-only version of the sdk gas meter
-type GasMeter = api.GasMeter
 
 // VM is the main entry point to this library.
 // You should create an instance with its own subdirectory to manage state inside,
@@ -37,13 +23,13 @@ type VM struct {
 // NewVM creates a new VM.
 //
 // `dataDir` is a base directory for Wasm blobs and various caches.
-// `supportedFeatures` is a comma separated list of features suppored by the chain.
+// `supportedCapabilities` is a comma separated list of capabilities suppored by the chain.
 // `memoryLimit` is the memory limit of each contract execution (in MiB)
 // `printDebug` is a flag to enable/disable printing debug logs from the contract to STDOUT. This should be false in production environments.
 // `cacheSize` sets the size in MiB of an in-memory cache for e.g. module caching. Set to 0 to disable.
 // `deserCost` sets the gas cost of deserializing one byte of data.
-func NewVM(dataDir string, supportedFeatures string, memoryLimit uint32, printDebug bool, cacheSize uint32) (*VM, error) {
-	cache, err := api.InitCache(dataDir, supportedFeatures, cacheSize, memoryLimit)
+func NewVM(dataDir string, supportedCapabilities string, memoryLimit uint32, printDebug bool, cacheSize uint32) (*VM, error) {
+	cache, err := api.InitCache(dataDir, supportedCapabilities, cacheSize, memoryLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -55,8 +41,13 @@ func (vm *VM) Cleanup() {
 	api.ReleaseCache(vm.cache)
 }
 
-// Create will compile the wasm code, and store the resulting pre-compile
-// as well as the original code. Both can be referenced later via Checksum
+// Deprecated: Renamed to StoreCode
+func (vm *VM) Create(code WasmCode) (Checksum, error) {
+	return vm.StoreCode(code)
+}
+
+// StoreCode will compile the Wasm code, and store the resulting compiled module
+// as well as the original code. Both can be referenced later via Checksum.
 // This must be done one time for given code, after which it can be
 // instatitated many times, and each instance called many times.
 //
@@ -65,17 +56,27 @@ func (vm *VM) Cleanup() {
 // be instantiated with custom inputs in the future.
 //
 // TODO: return gas cost? Add gas limit??? there is no metering here...
-func (vm *VM) Create(code WasmCode) (Checksum, error) {
-	return api.Create(vm.cache, code)
+func (vm *VM) StoreCode(code WasmCode) (Checksum, error) {
+	return api.StoreCode(vm.cache, code)
 }
 
-// GetCode will load the original wasm code for the given code id.
-// This will only succeed if that code id was previously returned from
-// a call to Create.
+// StoreCodeUnchecked is the same as StoreCode but skips static validation checks.
+// Use this for adding code that was checked before, particularly in the case of state sync.
+func (vm *VM) StoreCodeUnchecked(code WasmCode) (Checksum, error) {
+	return api.StoreCodeUnchecked(vm.cache, code)
+}
+
+func (vm *VM) RemoveCode(checksum Checksum) error {
+	return api.RemoveCode(vm.cache, checksum)
+}
+
+// GetCode will load the original Wasm code for the given checksum.
+// This will only succeed if that checksum was previously returned from
+// a call to StoreCode.
 //
-// This can be used so that the (short) code id (hash) is stored in the iavl tree
-// and the larger binary blobs (wasm and pre-compiles) are all managed by the
-// rust library
+// This can be used so that the (short) checksum is stored in the iavl tree
+// and the larger binary blobs (wasm and compiled modules) are all managed
+// by libwasmvm/cosmwasm-vm (Rust part).
 func (vm *VM) GetCode(checksum Checksum) (WasmCode, error) {
 	return api.GetCode(vm.cache, checksum)
 }
@@ -135,26 +136,20 @@ func (vm *VM) Instantiate(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Instantiate(vm.cache, checksum, envBin, infoBin, initMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.Instantiate(vm.cache, checksum, envBin, infoBin, initMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var result types.ContractResult
-	err = json.Unmarshal(data, &result)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &result)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if result.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", result.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", result.Err)
 	}
-	return result.Ok, gasUsed, nil
+	return result.Ok, gasReport.UsedInternally, nil
 }
 
 // Execute calls a given contract. Since the only difference between contracts with the same Checksum is the
@@ -162,7 +157,7 @@ func (vm *VM) Instantiate(
 // (That is a detail for the external, sdk-facing, side).
 //
 // The caller is responsible for passing the correct `store` (which must have been initialized exactly once),
-// and setting the env with relevent info on this instance (address, balance, etc)
+// and setting the env with relevant info on this instance (address, balance, etc)
 func (vm *VM) Execute(
 	checksum Checksum,
 	env types.Env,
@@ -183,26 +178,20 @@ func (vm *VM) Execute(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Execute(vm.cache, checksum, envBin, infoBin, executeMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.Execute(vm.cache, checksum, envBin, infoBin, executeMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-
-	gasUsed += gasForDeserialization
 	var result types.ContractResult
-	err = json.Unmarshal(data, &result)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &result)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if result.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", result.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", result.Err)
 	}
-	return result.Ok, gasUsed, nil
+	return result.Ok, gasReport.UsedInternally, nil
 }
 
 // Query allows a client to execute a contract-specific query. If the result is not empty, it should be
@@ -223,26 +212,20 @@ func (vm *VM) Query(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Query(vm.cache, checksum, envBin, queryMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.Query(vm.cache, checksum, envBin, queryMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.QueryResponse
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // Migrate will migrate an existing contract to a new code binary.
@@ -266,26 +249,20 @@ func (vm *VM) Migrate(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Migrate(vm.cache, checksum, envBin, migrateMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.Migrate(vm.cache, checksum, envBin, migrateMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.ContractResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // Sudo allows native Go modules to make priviledged (sudo) calls on the contract.
@@ -309,26 +286,20 @@ func (vm *VM) Sudo(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Sudo(vm.cache, checksum, envBin, sudoMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.Sudo(vm.cache, checksum, envBin, sudoMsg, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.ContractResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // Reply allows the native Go wasm modules to make a priviledged call to return the result
@@ -354,26 +325,20 @@ func (vm *VM) Reply(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.Reply(vm.cache, checksum, envBin, replyBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.Reply(vm.cache, checksum, envBin, replyBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.ContractResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // IBCChannelOpen is available on IBC-enabled contracts and is a hook to call into
@@ -397,26 +362,20 @@ func (vm *VM) IBCChannelOpen(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCChannelOpen(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.IBCChannelOpen(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCChannelOpenResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // IBCChannelConnect is available on IBC-enabled contracts and is a hook to call into
@@ -440,26 +399,20 @@ func (vm *VM) IBCChannelConnect(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCChannelConnect(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.IBCChannelConnect(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // IBCChannelClose is available on IBC-enabled contracts and is a hook to call into
@@ -483,26 +436,20 @@ func (vm *VM) IBCChannelClose(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCChannelClose(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.IBCChannelClose(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // IBCPacketReceive is available on IBC-enabled contracts and is called when an incoming
@@ -526,23 +473,17 @@ func (vm *VM) IBCPacketReceive(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCPacketReceive(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.IBCPacketReceive(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCReceiveResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-	return &resp, gasUsed, nil
+	return &resp, gasReport.UsedInternally, nil
 }
 
 // IBCPacketAck is available on IBC-enabled contracts and is called when an
@@ -567,26 +508,20 @@ func (vm *VM) IBCPacketAck(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCPacketAck(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.IBCPacketAck(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
 // IBCPacketTimeout is available on IBC-enabled contracts and is called when an
@@ -611,31 +546,34 @@ func (vm *VM) IBCPacketTimeout(
 	if err != nil {
 		return nil, 0, err
 	}
-	data, gasUsed, err := api.IBCPacketTimeout(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
+	data, gasReport, err := api.IBCPacketTimeout(vm.cache, checksum, envBin, msgBin, &gasMeter, store, &goapi, &querier, gasLimit, vm.printDebug)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
-
-	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
-	if gasLimit < gasForDeserialization+gasUsed {
-		return nil, gasUsed, fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
-	}
-	gasUsed += gasForDeserialization
 
 	var resp types.IBCBasicResult
-	err = json.Unmarshal(data, &resp)
+	err = DeserializeResponse(gasLimit, deserCost, &gasReport, data, &resp)
 	if err != nil {
-		return nil, gasUsed, err
+		return nil, gasReport.UsedInternally, err
 	}
 	if resp.Err != "" {
-		return nil, gasUsed, fmt.Errorf("%s", resp.Err)
+		return nil, gasReport.UsedInternally, fmt.Errorf("%s", resp.Err)
 	}
-	return resp.Ok, gasUsed, nil
+	return resp.Ok, gasReport.UsedInternally, nil
 }
 
-// LibwasmvmVersion returns the version of the loaded library
-// at runtime. This can be used for debugging to verify the loaded version
-// matches the expected version.
-func LibwasmvmVersion() (string, error) {
-	return api.LibwasmvmVersion()
+func DeserializeResponse(gasLimit uint64, deserCost types.UFraction, gasReport *types.GasReport, data []byte, response any) error {
+	gasForDeserialization := deserCost.Mul(uint64(len(data))).Floor()
+	if gasLimit < gasForDeserialization+gasReport.UsedInternally {
+		return fmt.Errorf("Insufficient gas left to deserialize contract execution result (%d bytes)", len(data))
+	}
+	gasReport.UsedInternally += gasForDeserialization
+	gasReport.Remaining -= gasForDeserialization
+
+	err := json.Unmarshal(data, response)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

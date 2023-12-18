@@ -31,10 +31,24 @@ if [[ -n "$CHANGES_IN_REPO" ]]; then
 fi
 
 NEW="$1"
-OLD=$(cargo tree -i wasmvm --manifest-path libwasmvm/Cargo.toml | grep -oE "[0-9]+(\.[0-9]+){2}-[0-9]+(\.[0-9]+){2}(-[0-9a-zA-Z.]+)*(\+[0-9a-zA-Z.\-]+)*")
-echo "Updating old version $OLD to new version $NEW ..."
+echo "Setting version to $NEW ..."
 
 CARGO_TOML="libwasmvm/Cargo.toml"
-"$gnused" -i -e "s/version[[:space:]]*=[[:space:]]*\"$OLD\"/version = \"$NEW\"/" "$CARGO_TOML"
+CARGO_LOCK="libwasmvm/Cargo.lock"
+"$gnused" -i -e "s/^version[[:space:]]*=.*/version = \"$NEW\"/" "$CARGO_TOML"
+(cd libwasmvm && cargo check && cargo test)
+git add "$CARGO_TOML" "$CARGO_LOCK"
+git commit -m "Set libwasmvm version: $NEW"
+git push
 
-cargo check --manifest-path libwasmvm/Cargo.toml
+while true; do
+  echo "Waiting for library build commit ..."
+  sleep 45
+  git pull
+  if git log --oneline | head -n 1 | grep "[skip ci] Built release libraries"; then
+    TAG="v$NEW"
+    git tag "$TAG"
+    echo "Tag $TAG created. Please review and git push --tags"
+    exit 0
+  fi
+done

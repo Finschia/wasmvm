@@ -16,11 +16,6 @@ crate-type = ["cdylib", "rlib"]
 # the example is to allow us to compile a muslc static lib with the same codebase as we compile the
 # normal dynamic libs (best workaround I could find to override crate-type on the command line)
 [[example]]
-name = "muslc"
-path = "src/lib.rs"
-crate-type = ["staticlib"]
-
-[[example]]
 name = "wasmvmstatic"
 path = "src/examples/wasmvmstatic.rs"
 crate-type = ["staticlib"]
@@ -31,16 +26,17 @@ default = []
 backtraces = []
 
 [dependencies]
-cosmwasm-std = { git = "https://github.com/Finschia/cosmwasm", tag = "v1.1.9+0.8.1", features = ["iterator","staking","stargate"]}
-cosmwasm-vm = { git = "https://github.com/Finschia/cosmwasm", tag = "v1.1.9+0.8.1", features = ["iterator","staking","stargate"]}
+cosmwasm-std = { git = "https://github.com/Finschia/cosmwasm", branch = "feat/bump_1.4.0", features = ["iterator","staking","stargate"]}
+cosmwasm-vm = { git = "https://github.com/Finschia/cosmwasm", branch = "feat/bump_1.4.0", features = ["iterator","staking","stargate"]}
 errno = "0.2"
-serde_json = "1.0"
-thiserror = "1.0"
-hex = "0.4"
+serde_json = "1.0.91"
+thiserror = "1.0.38"
+hex = "0.4.3"
+time = { version = "0.3.28", features = ["formatting"] }
 
 [dev-dependencies]
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-tempfile = "3.1.0"
+tempfile = "3.4.0"
 
 [build-dependencies]
 cbindgen = "0.24.3"

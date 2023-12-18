@@ -28,8 +28,27 @@ func (q QueryResponse) MarshalJSON() ([]byte, error) {
 
 //-------- Querier -----------
 
+// Querier is a thing that allows the contract to query information
+// from the environment it is executed in. This is typically used to query
+// a different contract or another module in a Cosmos blockchain.
+//
+// Queries are performed synchronously, i.e. the original caller is blocked
+// until the query response is returned.
 type Querier interface {
+	// Query takes a query request, performs the query and returns the response.
+	// It takes a gas limit measured in [CosmWasm gas] (aka. wasmvm gas) to ensure
+	// the query does not consume more gas than the contract execution has left.
+	//
+	// [CosmWasm gas]: https://github.com/CosmWasm/cosmwasm/blob/v1.3.1/docs/GAS.md
 	Query(request QueryRequest, gasLimit uint64) ([]byte, error)
+	// GasConsumed returns the gas that was consumed by the querier during its entire
+	// lifetime or by the context in which it was executed in. The absolute gas values
+	// must not be used directly as it is undefined what is included in this value. Instead
+	// wasmvm will call GasConsumed before and after the query and use the difference
+	// as the query's gas usage.
+	// Like the gas limit above, this is measured in [CosmWasm gas] (aka. wasmvm gas).
+	//
+	// [CosmWasm gas]: https://github.com/CosmWasm/cosmwasm/blob/v1.3.1/docs/GAS.md
 	GasConsumed() uint64
 }
 
@@ -81,18 +100,21 @@ func ToQuerierResult(response []byte, err error) QuerierResult {
 // QueryRequest is an rust enum and only (exactly) one of the fields should be set
 // Should we do a cleaner approach in Go? (type/data?)
 type QueryRequest struct {
-	Bank     *BankQuery      `json:"bank,omitempty"`
-	Custom   json.RawMessage `json:"custom,omitempty"`
-	IBC      *IBCQuery       `json:"ibc,omitempty"`
-	Staking  *StakingQuery   `json:"staking,omitempty"`
-	Stargate *StargateQuery  `json:"stargate,omitempty"`
-	Wasm     *WasmQuery      `json:"wasm,omitempty"`
+	Bank         *BankQuery         `json:"bank,omitempty"`
+	Custom       json.RawMessage    `json:"custom,omitempty"`
+	IBC          *IBCQuery          `json:"ibc,omitempty"`
+	Staking      *StakingQuery      `json:"staking,omitempty"`
+	Distribution *DistributionQuery `json:"distribution,omitempty"`
+	Stargate     *StargateQuery     `json:"stargate,omitempty"`
+	Wasm         *WasmQuery         `json:"wasm,omitempty"`
 }
 
 type BankQuery struct {
-	Supply      *SupplyQuery      `json:"supply,omitempty"`
-	Balance     *BalanceQuery     `json:"balance,omitempty"`
-	AllBalances *AllBalancesQuery `json:"all_balances,omitempty"`
+	Supply           *SupplyQuery           `json:"supply,omitempty"`
+	Balance          *BalanceQuery          `json:"balance,omitempty"`
+	AllBalances      *AllBalancesQuery      `json:"all_balances,omitempty"`
+	DenomMetadata    *DenomMetadataQuery    `json:"denom_metadata,omitempty"`
+	AllDenomMetadata *AllDenomMetadataQuery `json:"all_denom_metadata,omitempty"`
 }
 
 type SupplyQuery struct {
@@ -121,6 +143,28 @@ type AllBalancesQuery struct {
 // AllBalancesResponse is the expected response to AllBalancesQuery
 type AllBalancesResponse struct {
 	Amount Coins `json:"amount"`
+}
+
+type DenomMetadataQuery struct {
+	Denom string `json:"denom"`
+}
+
+type DenomMetadataResponse struct {
+	Metadata DenomMetadata `json:"metadata"`
+}
+
+type AllDenomMetadataQuery struct {
+	// Pagination is an optional argument.
+	// Default pagination will be used if this is omitted
+	Pagination *PageRequest `json:"pagination,omitempty"`
+}
+
+type AllDenomMetadataResponse struct {
+	Metadata []DenomMetadata `json:"metadata"`
+	// NextKey is the key to be passed to PageRequest.key to
+	// query the next page most efficiently. It will be empty if
+	// there are no more results.
+	NextKey []byte `json:"next_key,omitempty"`
 }
 
 // IBCQuery defines a query request from the contract into the chain.
@@ -319,6 +363,59 @@ type Delegation struct {
 	Amount    Coin   `json:"amount"`
 }
 
+type DistributionQuery struct {
+	// See <https://github.com/cosmos/cosmos-sdk/blob/c74e2887b0b73e81d48c2f33e6b1020090089ee0/proto/cosmos/distribution/v1beta1/query.proto#L222-L230>
+	DelegatorWithdrawAddress *DelegatorWithdrawAddressQuery `json:"delegator_withdraw_address,omitempty"`
+	// See <https://github.com/cosmos/cosmos-sdk/blob/c74e2887b0b73e81d48c2f33e6b1020090089ee0/proto/cosmos/distribution/v1beta1/query.proto#L157-L167>
+	DelegationRewards *DelegationRewardsQuery `json:"delegation_rewards,omitempty"`
+	// See <https://github.com/cosmos/cosmos-sdk/blob/c74e2887b0b73e81d48c2f33e6b1020090089ee0/proto/cosmos/distribution/v1beta1/query.proto#L180-L187>
+	DelegationTotalRewards *DelegationTotalRewardsQuery `json:"delegation_total_rewards,omitempty"`
+	// See <https://github.com/cosmos/cosmos-sdk/blob/b0acf60e6c39f7ab023841841fc0b751a12c13ff/proto/cosmos/distribution/v1beta1/query.proto#L202-L210>
+	DelegatorValidators *DelegatorValidatorsQuery `json:"delegator_validators,omitempty"`
+}
+
+type DelegatorWithdrawAddressQuery struct {
+	DelegatorAddress string `json:"delegator_address"`
+}
+
+type DelegatorWithdrawAddressResponse struct {
+	WithdrawAddress string `json:"withdraw_address"`
+}
+
+type DelegationRewardsQuery struct {
+	DelegatorAddress string `json:"delegator_address"`
+	ValidatorAddress string `json:"validator_address"`
+}
+
+// See <https://github.com/cosmos/cosmos-sdk/blob/c74e2887b0b73e81d48c2f33e6b1020090089ee0/proto/cosmos/distribution/v1beta1/query.proto#L169-L178>
+type DelegationRewardsResponse struct {
+	Rewards []DecCoin `json:"rewards"`
+}
+
+type DelegationTotalRewardsQuery struct {
+	DelegatorAddress string `json:"delegator_address"`
+}
+
+// See <https://github.com/cosmos/cosmos-sdk/blob/c74e2887b0b73e81d48c2f33e6b1020090089ee0/proto/cosmos/distribution/v1beta1/query.proto#L189-L200>
+type DelegationTotalRewardsResponse struct {
+	Rewards []DelegatorReward `json:"rewards"`
+	Total   []DecCoin         `json:"total"`
+}
+
+type DelegatorReward struct {
+	Reward           []DecCoin `json:"reward"`
+	ValidatorAddress string    `json:"validator_address"`
+}
+
+type DelegatorValidatorsQuery struct {
+	DelegatorAddress string `json:"delegator_address"`
+}
+
+// See <https://github.com/cosmos/cosmos-sdk/blob/b0acf60e6c39f7ab023841841fc0b751a12c13ff/proto/cosmos/distribution/v1beta1/query.proto#L212-L220>
+type DelegatorValidatorsResponse struct {
+	Validators []string `json:"validators"`
+}
+
 // DelegationResponse is the expected response to DelegationsQuery
 type DelegationResponse struct {
 	Delegation *FullDelegation `json:"delegation,omitempty"`
@@ -352,9 +449,10 @@ type WasmQuery struct {
 	Smart        *SmartQuery        `json:"smart,omitempty"`
 	Raw          *RawQuery          `json:"raw,omitempty"`
 	ContractInfo *ContractInfoQuery `json:"contract_info,omitempty"`
+	CodeInfo     *CodeInfoQuery     `json:"code_info,omitempty"`
 }
 
-// SmartQuery respone is raw bytes ([]byte)
+// SmartQuery response is raw bytes ([]byte)
 type SmartQuery struct {
 	// Bech32 encoded sdk.AccAddress of the contract
 	ContractAddr string `json:"contract_addr"`
@@ -381,4 +479,14 @@ type ContractInfoResponse struct {
 	Pinned bool   `json:"pinned"`
 	// Set if the contract is IBC enabled
 	IBCPort string `json:"ibc_port,omitempty"`
+}
+
+type CodeInfoQuery struct {
+	CodeID uint64 `json:"code_id"`
+}
+
+type CodeInfoResponse struct {
+	CodeID   uint64   `json:"code_id"`
+	Creator  string   `json:"creator"`
+	Checksum Checksum `json:"checksum,omitempty"`
 }

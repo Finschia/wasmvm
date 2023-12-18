@@ -1,10 +1,11 @@
 package api
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 )
 
 const (
-	TESTING_FEATURES     = "staking,stargate,iterator"
+	TESTING_CAPABILITIES = "staking,stargate,iterator,cosmwasm_1_1,cosmwasm_1_2,cosmwasm_1_3"
 	TESTING_PRINT_DEBUG  = false
 	TESTING_GAS_LIMIT    = uint64(500_000_000_000) // ~0.5ms
 	TESTING_MEMORY_LIMIT = 32                      // MiB
@@ -23,31 +24,50 @@ const (
 )
 
 func TestInitAndReleaseCache(t *testing.T) {
-	dataDir := "/foo"
-	_, err := InitCache(dataDir, TESTING_FEATURES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
-	require.Error(t, err)
-
-	tmpdir, err := ioutil.TempDir("", "wasmvm-testing")
+	tmpdir, err := os.MkdirTemp("", "wasmvm-testing")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpdir)
 
-	cache, err := InitCache(tmpdir, TESTING_FEATURES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
+	cache, err := InitCache(tmpdir, TESTING_CAPABILITIES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
 	require.NoError(t, err)
 	ReleaseCache(cache)
 }
 
-func TestInitCacheEmptyFeatures(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "wasmvm-testing")
+// wasmd expects us to create the base directory
+// https://github.com/CosmWasm/wasmd/blob/v0.30.0/x/wasm/keeper/keeper.go#L128
+func TestInitCacheWorksForNonExistentDir(t *testing.T) {
+	tmpdir, err := os.MkdirTemp("", "wasmvm-testing")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpdir)
+
+	createMe := filepath.Join(tmpdir, "does-not-yet-exist")
+	cache, err := InitCache(createMe, TESTING_CAPABILITIES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
+	require.NoError(t, err)
+	ReleaseCache(cache)
+}
+
+func TestInitCacheErrorsForBrokenDir(t *testing.T) {
+	// Use colon to make this fail on Windows
+	// https://gist.github.com/doctaphred/d01d05291546186941e1b7ddc02034d3
+	// On Unix we should not have permission to create this.
+	cannotBeCreated := "/foo:bar"
+	_, err := InitCache(cannotBeCreated, TESTING_CAPABILITIES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
+	require.ErrorContains(t, err, "Error creating state directory")
+}
+
+func TestInitCacheEmptyCapabilities(t *testing.T) {
+	tmpdir, err := os.MkdirTemp("", "wasmvm-testing")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpdir)
 	cache, err := InitCache(tmpdir, "", TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
+	require.NoError(t, err)
 	ReleaseCache(cache)
 }
 
 func withCache(t *testing.T) (Cache, func()) {
-	tmpdir, err := ioutil.TempDir("", "wasmvm-testing")
+	tmpdir, err := os.MkdirTemp("", "wasmvm-testing")
 	require.NoError(t, err)
-	cache, err := InitCache(tmpdir, TESTING_FEATURES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
+	cache, err := InitCache(tmpdir, TESTING_CAPABILITIES, TESTING_CACHE_SIZE, TESTING_MEMORY_LIMIT)
 	require.NoError(t, err)
 
 	cleanup := func() {
@@ -57,38 +77,76 @@ func withCache(t *testing.T) (Cache, func()) {
 	return cache, cleanup
 }
 
-func TestCreateAndGet(t *testing.T) {
+func TestStoreCodeAndGetCode(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 
-	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
+	wasm, err := os.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 
-	checksum, err := Create(cache, wasm)
+	checksum, err := StoreCode(cache, wasm)
 	require.NoError(t, err)
+	expectedChecksum := sha256.Sum256(wasm)
+	require.Equal(t, expectedChecksum[:], checksum)
 
 	code, err := GetCode(cache, checksum)
 	require.NoError(t, err)
 	require.Equal(t, wasm, code)
 }
 
-func TestCreateFailsWithBadData(t *testing.T) {
+func TestRemoveCode(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+
+	wasm, err := os.ReadFile("../../testdata/hackatom.wasm")
+	require.NoError(t, err)
+
+	checksum, err := StoreCode(cache, wasm)
+	require.NoError(t, err)
+
+	// First removal works
+	err = RemoveCode(cache, checksum)
+	require.NoError(t, err)
+
+	// Second removal fails
+	err = RemoveCode(cache, checksum)
+	require.ErrorContains(t, err, "Wasm file does not exist")
+}
+
+func TestStoreCodeFailsWithBadData(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 
 	wasm := []byte("some invalid data")
-	_, err := Create(cache, wasm)
+	_, err := StoreCode(cache, wasm)
 	require.Error(t, err)
+}
+
+func TestStoreCodeUnchecked(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+
+	wasm, err := os.ReadFile("../../testdata/hackatom.wasm")
+	require.NoError(t, err)
+
+	checksum, err := StoreCodeUnchecked(cache, wasm)
+	require.NoError(t, err)
+	expectedChecksum := sha256.Sum256(wasm)
+	require.Equal(t, expectedChecksum[:], checksum)
+
+	code, err := GetCode(cache, checksum)
+	require.NoError(t, err)
+	require.Equal(t, wasm, code)
 }
 
 func TestPin(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 
-	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
+	wasm, err := os.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 
-	checksum, err := Create(cache, wasm)
+	checksum, err := StoreCode(cache, wasm)
 	require.NoError(t, err)
 
 	err = Pin(cache, checksum)
@@ -121,17 +179,17 @@ func TestPinErrors(t *testing.T) {
 		0x84, 0x22, 0x71, 0x04,
 	}
 	err = Pin(cache, unknownChecksum)
-	require.ErrorContains(t, err, "No such file or directory")
+	require.ErrorContains(t, err, "Error opening Wasm file for reading")
 }
 
 func TestUnpin(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
 
-	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
+	wasm, err := os.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
 
-	checksum, err := Create(cache, wasm)
+	checksum, err := StoreCode(cache, wasm)
 	require.NoError(t, err)
 
 	err = Pin(cache, checksum)
@@ -172,10 +230,10 @@ func TestGetMetrics(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, &types.Metrics{}, metrics)
 
-	// Create contract
-	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
+	// Store contract
+	wasm, err := os.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
-	checksum, err := Create(cache, wasm)
+	checksum, err := StoreCode(cache, wasm)
 	require.NoError(t, err)
 
 	// GetMetrics 2
@@ -185,7 +243,7 @@ func TestGetMetrics(t *testing.T) {
 
 	// Instantiate 1
 	gasMeter := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter := GasMeter(gasMeter)
+	igasMeter := types.GasMeter(gasMeter)
 	store := NewLookup(gasMeter)
 	api := NewMockAPI()
 	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, types.Coins{types.NewCoin(100, "ATOM")})
@@ -201,7 +259,8 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(0), metrics.HitsMemoryCache)
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
+	t.Log(t, metrics.SizeMemoryCache)
+	require.InEpsilon(t, 2832576, metrics.SizeMemoryCache, 0.25)
 
 	// Instantiate 2
 	msg2 := []byte(`{"verifier": "fred", "beneficiary": "susi"}`)
@@ -214,7 +273,7 @@ func TestGetMetrics(t *testing.T) {
 	require.Equal(t, uint32(1), metrics.HitsMemoryCache)
 	require.Equal(t, uint32(1), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 2832576, metrics.SizeMemoryCache, 0.25)
 
 	// Pin
 	err = Pin(cache, checksum)
@@ -223,12 +282,12 @@ func TestGetMetrics(t *testing.T) {
 	// GetMetrics 5
 	metrics, err = GetMetrics(cache)
 	assert.NoError(t, err)
-	require.Equal(t, uint32(2), metrics.HitsMemoryCache)
-	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint32(1), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(2), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5602873, metrics.SizePinnedMemoryCache, 0.18)
-	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 2832576, metrics.SizePinnedMemoryCache, 0.25)
+	require.InEpsilon(t, 2832576, metrics.SizeMemoryCache, 0.25)
 
 	// Instantiate 3
 	msg3 := []byte(`{"verifier": "fred", "beneficiary": "bert"}`)
@@ -239,12 +298,12 @@ func TestGetMetrics(t *testing.T) {
 	metrics, err = GetMetrics(cache)
 	assert.NoError(t, err)
 	require.Equal(t, uint32(1), metrics.HitsPinnedMemoryCache)
-	require.Equal(t, uint32(2), metrics.HitsMemoryCache)
-	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint32(1), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(2), metrics.HitsFsCache)
 	require.Equal(t, uint64(1), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
-	require.InEpsilon(t, 5602873, metrics.SizePinnedMemoryCache, 0.18)
-	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 2832576, metrics.SizePinnedMemoryCache, 0.25)
+	require.InEpsilon(t, 2832576, metrics.SizeMemoryCache, 0.25)
 
 	// Unpin
 	err = Unpin(cache, checksum)
@@ -254,12 +313,12 @@ func TestGetMetrics(t *testing.T) {
 	metrics, err = GetMetrics(cache)
 	assert.NoError(t, err)
 	require.Equal(t, uint32(1), metrics.HitsPinnedMemoryCache)
-	require.Equal(t, uint32(2), metrics.HitsMemoryCache)
-	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint32(1), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(2), metrics.HitsFsCache)
 	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
-	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 2832576, metrics.SizeMemoryCache, 0.25)
 
 	// Instantiate 4
 	msg4 := []byte(`{"verifier": "fred", "beneficiary": "jeff"}`)
@@ -270,12 +329,12 @@ func TestGetMetrics(t *testing.T) {
 	metrics, err = GetMetrics(cache)
 	assert.NoError(t, err)
 	require.Equal(t, uint32(1), metrics.HitsPinnedMemoryCache)
-	require.Equal(t, uint32(3), metrics.HitsMemoryCache)
-	require.Equal(t, uint32(1), metrics.HitsFsCache)
+	require.Equal(t, uint32(2), metrics.HitsMemoryCache)
+	require.Equal(t, uint32(2), metrics.HitsFsCache)
 	require.Equal(t, uint64(0), metrics.ElementsPinnedMemoryCache)
 	require.Equal(t, uint64(1), metrics.ElementsMemoryCache)
 	require.Equal(t, uint64(0), metrics.SizePinnedMemoryCache)
-	require.InEpsilon(t, 5602873, metrics.SizeMemoryCache, 0.18)
+	require.InEpsilon(t, 2832576, metrics.SizeMemoryCache, 0.25)
 }
 
 func TestInstantiate(t *testing.T) {
@@ -283,13 +342,13 @@ func TestInstantiate(t *testing.T) {
 	defer cleanup()
 
 	// create contract
-	wasm, err := ioutil.ReadFile("../../testdata/hackatom.wasm")
+	wasm, err := os.ReadFile("../../testdata/hackatom.wasm")
 	require.NoError(t, err)
-	checksum, err := Create(cache, wasm)
+	checksum, err := StoreCode(cache, wasm)
 	require.NoError(t, err)
 
 	gasMeter := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter := GasMeter(gasMeter)
+	igasMeter := types.GasMeter(gasMeter)
 	// instantiate it with this store
 	store := NewLookup(gasMeter)
 	api := NewMockAPI()
@@ -301,7 +360,7 @@ func TestInstantiate(t *testing.T) {
 	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x1432036ec), cost)
+	assert.Equal(t, uint64(0x13a78a36c), cost.UsedInternally)
 
 	var result types.ContractResult
 	err = json.Unmarshal(res, &result)
@@ -313,10 +372,10 @@ func TestInstantiate(t *testing.T) {
 func TestExecute(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	// instantiate it with this store
 	store := NewLookup(gasMeter1)
 	api := NewMockAPI()
@@ -329,24 +388,24 @@ func TestExecute(t *testing.T) {
 
 	start := time.Now()
 	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff := time.Now().Sub(start)
+	diff := time.Since(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x1432036ec), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
+	assert.Equal(t, uint64(0x13a78a36c), cost.UsedInternally)
+	t.Logf("Time (%d gas): %s\n", cost.UsedInternally, diff)
 
 	// execute with the same store
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	env = MockEnvBin(t)
 	info = MockInfoBin(t, "fred")
 	start = time.Now()
 	res, cost, err = Execute(cache, checksum, env, info, []byte(`{"release":{}}`), &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff = time.Now().Sub(start)
+	diff = time.Since(start)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(0x2335827f0), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
+	assert.Equal(t, uint64(0x222892d70), cost.UsedInternally)
+	t.Logf("Time (%d gas): %s\n", cost.UsedInternally, diff)
 
 	// make sure it read the balance properly and we got 250 atoms
 	var result types.ContractResult
@@ -374,13 +433,14 @@ func TestExecute(t *testing.T) {
 	assert.Equal(t, expectedData, result.Ok.Data)
 }
 
-func TestExecuteCpuLoop(t *testing.T) {
+func TestExecutePanic(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createCyberpunkContract(t, cache)
 
-	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
+	maxGas := TESTING_GAS_LIMIT
+	gasMeter1 := NewMockGasMeter(maxGas)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	// instantiate it with this store
 	store := NewLookup(gasMeter1)
 	api := NewMockAPI()
@@ -389,38 +449,94 @@ func TestExecuteCpuLoop(t *testing.T) {
 	env := MockEnvBin(t)
 	info := MockInfoBin(t, "creator")
 
-	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
+	res, _, err := Instantiate(cache, checksum, env, info, []byte(`{}`), &igasMeter1, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+
+	// execute a panic
+	gasMeter2 := NewMockGasMeter(maxGas)
+	igasMeter2 := types.GasMeter(gasMeter2)
+	store.SetGasMeter(gasMeter2)
+	info = MockInfoBin(t, "fred")
+	_, _, err = Execute(cache, checksum, env, info, []byte(`{"panic":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	require.ErrorContains(t, err, "RuntimeError: Aborted: panicked at 'This page intentionally faulted'")
+}
+
+func TestExecuteUnreachable(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum := createCyberpunkContract(t, cache)
+
+	maxGas := TESTING_GAS_LIMIT
+	gasMeter1 := NewMockGasMeter(maxGas)
+	igasMeter1 := types.GasMeter(gasMeter1)
+	// instantiate it with this store
+	store := NewLookup(gasMeter1)
+	api := NewMockAPI()
+	balance := types.Coins{types.NewCoin(250, "ATOM")}
+	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, balance)
+	env := MockEnvBin(t)
+	info := MockInfoBin(t, "creator")
+
+	res, _, err := Instantiate(cache, checksum, env, info, []byte(`{}`), &igasMeter1, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	require.NoError(t, err)
+	requireOkResponse(t, res, 0)
+
+	// execute a panic
+	gasMeter2 := NewMockGasMeter(maxGas)
+	igasMeter2 := types.GasMeter(gasMeter2)
+	store.SetGasMeter(gasMeter2)
+	info = MockInfoBin(t, "fred")
+	_, _, err = Execute(cache, checksum, env, info, []byte(`{"unreachable":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	require.ErrorContains(t, err, "RuntimeError: unreachable")
+}
+
+func TestExecuteCpuLoop(t *testing.T) {
+	cache, cleanup := withCache(t)
+	defer cleanup()
+	checksum := createCyberpunkContract(t, cache)
+
+	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
+	igasMeter1 := types.GasMeter(gasMeter1)
+	// instantiate it with this store
+	store := NewLookup(gasMeter1)
+	api := NewMockAPI()
+	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, nil)
+	env := MockEnvBin(t)
+	info := MockInfoBin(t, "creator")
+
+	msg := []byte(`{}`)
 
 	start := time.Now()
 	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
-	diff := time.Now().Sub(start)
+	diff := time.Since(start)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x1432036ec), cost)
-	t.Logf("Time (%d gas): %s\n", cost, diff)
+	assert.Equal(t, uint64(0xd45091d0), cost.UsedInternally)
+	t.Logf("Time (%d gas): %s\n", cost.UsedInternally, diff)
 
 	// execute a cpu loop
 	maxGas := uint64(40_000_000)
 	gasMeter2 := NewMockGasMeter(maxGas)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	info = MockInfoBin(t, "fred")
 	start = time.Now()
-	res, cost, err = Execute(cache, checksum, env, info, []byte(`{"cpu_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
-	diff = time.Now().Sub(start)
+	_, cost, err = Execute(cache, checksum, env, info, []byte(`{"cpu_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	diff = time.Since(start)
 	require.Error(t, err)
-	assert.Equal(t, cost, maxGas)
-	t.Logf("CPULoop Time (%d gas): %s\n", cost, diff)
+	assert.Equal(t, cost.UsedInternally, maxGas)
+	t.Logf("CPULoop Time (%d gas): %s\n", cost.UsedInternally, diff)
 }
 
 func TestExecuteStorageLoop(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	maxGas := TESTING_GAS_LIMIT
 	gasMeter1 := NewMockGasMeter(maxGas)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	// instantiate it with this store
 	store := NewLookup(gasMeter1)
 	api := NewMockAPI()
@@ -431,36 +547,36 @@ func TestExecuteStorageLoop(t *testing.T) {
 
 	msg := []byte(`{"verifier": "fred", "beneficiary": "bob"}`)
 
-	res, cost, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	res, _, err := Instantiate(cache, checksum, env, info, msg, &igasMeter1, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 
 	// execute a storage loop
 	gasMeter2 := NewMockGasMeter(maxGas)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	info = MockInfoBin(t, "fred")
 	start := time.Now()
-	res, cost, err = Execute(cache, checksum, env, info, []byte(`{"storage_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
-	diff := time.Now().Sub(start)
+	_, gasReport, err := Execute(cache, checksum, env, info, []byte(`{"storage_loop":{}}`), &igasMeter2, store, api, &querier, maxGas, TESTING_PRINT_DEBUG)
+	diff := time.Since(start)
 	require.Error(t, err)
-	t.Logf("StorageLoop Time (%d gas): %s\n", cost, diff)
+	t.Logf("StorageLoop Time (%d gas): %s\n", gasReport.UsedInternally, diff)
 	t.Logf("Gas used: %d\n", gasMeter2.GasConsumed())
-	t.Logf("Wasm gas: %d\n", cost)
+	t.Logf("Wasm gas: %d\n", gasReport.UsedInternally)
 
 	// the "sdk gas" * GasMultiplier + the wasm cost should equal the maxGas (or be very close)
-	totalCost := cost + gasMeter2.GasConsumed()
+	totalCost := gasReport.UsedInternally + gasMeter2.GasConsumed()
 	require.Equal(t, int64(maxGas), int64(totalCost))
 }
 
 func TestExecuteUserErrorsInApiCalls(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	maxGas := TESTING_GAS_LIMIT
 	gasMeter1 := NewMockGasMeter(maxGas)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	// instantiate it with this store
 	store := NewLookup(gasMeter1)
 	balance := types.Coins{types.NewCoin(250, "ATOM")}
@@ -475,7 +591,7 @@ func TestExecuteUserErrorsInApiCalls(t *testing.T) {
 	requireOkResponse(t, res, 0)
 
 	gasMeter2 := NewMockGasMeter(maxGas)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	info = MockInfoBin(t, "fred")
 	failingApi := NewMockFailureAPI()
@@ -487,10 +603,10 @@ func TestExecuteUserErrorsInApiCalls(t *testing.T) {
 func TestMigrate(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	gasMeter := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter := GasMeter(gasMeter)
+	igasMeter := types.GasMeter(gasMeter)
 	// instantiate it with this store
 	store := NewLookup(gasMeter)
 	api := NewMockAPI()
@@ -516,7 +632,7 @@ func TestMigrate(t *testing.T) {
 
 	// migrate to a new verifier - alice
 	// we use the same code blob as we are testing hackatom self-migration
-	res, _, err = Migrate(cache, checksum, env, []byte(`{"verifier":"alice"}`), &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
+	_, _, err = Migrate(cache, checksum, env, []byte(`{"verifier":"alice"}`), &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 
 	// should update verifier to alice
@@ -532,11 +648,11 @@ func TestMigrate(t *testing.T) {
 func TestMultipleInstances(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	// instance1 controlled by fred
 	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	store1 := NewLookup(gasMeter1)
 	api := NewMockAPI()
 	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, types.Coins{types.NewCoin(100, "ATOM")})
@@ -547,25 +663,25 @@ func TestMultipleInstances(t *testing.T) {
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
 	// we now count wasm gas charges and db writes
-	assert.Equal(t, uint64(0x140fd2fdc), cost)
+	assert.Equal(t, uint64(0x138559c5c), cost.UsedInternally)
 
 	// instance2 controlled by mary
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store2 := NewLookup(gasMeter2)
 	info = MockInfoBin(t, "chrous")
 	msg = []byte(`{"verifier": "mary", "beneficiary": "sue"}`)
 	res, cost, err = Instantiate(cache, checksum, env, info, msg, &igasMeter2, store2, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
 	requireOkResponse(t, res, 0)
-	assert.Equal(t, uint64(0x142390b3c), cost)
+	assert.Equal(t, uint64(0x1399177bc), cost.UsedInternally)
 
 	// fail to execute store1 with mary
-	resp := exec(t, cache, checksum, "mary", store1, api, querier, 0x129b512e0)
+	resp := exec(t, cache, checksum, "mary", store1, api, querier, 0x1218ff5d0)
 	require.Equal(t, "Unauthorized", resp.Err)
 
 	// succeed to execute store1 with fred
-	resp = exec(t, cache, checksum, "fred", store1, api, querier, 0x23257cef0)
+	resp = exec(t, cache, checksum, "fred", store1, api, querier, 0x22188d470)
 	require.Equal(t, "", resp.Err)
 	require.Equal(t, 1, len(resp.Ok.Messages))
 	attributes := resp.Ok.Attributes
@@ -574,7 +690,7 @@ func TestMultipleInstances(t *testing.T) {
 	require.Equal(t, "bob", attributes[1].Value)
 
 	// succeed to execute store2 with mary
-	resp = exec(t, cache, checksum, "mary", store2, api, querier, 0x232d7fb70)
+	resp = exec(t, cache, checksum, "mary", store2, api, querier, 0x2220900f0)
 	require.Equal(t, "", resp.Err)
 	require.Equal(t, 1, len(resp.Ok.Messages))
 	attributes = resp.Ok.Attributes
@@ -586,10 +702,10 @@ func TestMultipleInstances(t *testing.T) {
 func TestSudo(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	// instantiate it with this store
 	store := NewLookup(gasMeter1)
 	api := NewMockAPI()
@@ -605,7 +721,7 @@ func TestSudo(t *testing.T) {
 
 	// call sudo with same store
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	env = MockEnvBin(t)
 	msg = []byte(`{"steal_funds":{"recipient":"community-pool","amount":[{"amount":"700","denom":"gold"}]}}`)
@@ -633,7 +749,7 @@ func TestDispatchSubmessage(t *testing.T) {
 	checksum := createReflectContract(t, cache)
 
 	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	// instantiate it with this store
 	store := NewLookup(gasMeter1)
 	api := NewMockAPI()
@@ -661,7 +777,7 @@ func TestDispatchSubmessage(t *testing.T) {
 	payloadMsg := []byte(fmt.Sprintf(`{"reflect_sub_msg":{"msgs":[%s]}}`, string(payloadBin)))
 
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	env = MockEnvBin(t)
 	res, _, err = Execute(cache, checksum, env, info, payloadMsg, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
@@ -686,7 +802,7 @@ func TestReplyAndQuery(t *testing.T) {
 	checksum := createReflectContract(t, cache)
 
 	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	// instantiate it with this store
 	store := NewLookup(gasMeter1)
 	api := NewMockAPI()
@@ -710,8 +826,8 @@ func TestReplyAndQuery(t *testing.T) {
 	}}
 	reply := types.Reply{
 		ID: id,
-		Result: types.SubcallResult{
-			Ok: &types.SubcallResponse{
+		Result: types.SubMsgResult{
+			Ok: &types.SubMsgResponse{
 				Events: events,
 				Data:   data,
 			},
@@ -721,7 +837,7 @@ func TestReplyAndQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	env = MockEnvBin(t)
 	res, _, err = Reply(cache, checksum, env, replyBin, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
@@ -774,8 +890,12 @@ func requireQueryOk(t *testing.T, res []byte) []byte {
 	return result.Ok
 }
 
-func createTestContract(t *testing.T, cache Cache) []byte {
+func createHackatomContract(t *testing.T, cache Cache) []byte {
 	return createContract(t, cache, "../../testdata/hackatom.wasm")
+}
+
+func createCyberpunkContract(t *testing.T, cache Cache) []byte {
+	return createContract(t, cache, "../../testdata/cyberpunk.wasm")
 }
 
 func createQueueContract(t *testing.T, cache Cache) []byte {
@@ -787,22 +907,22 @@ func createReflectContract(t *testing.T, cache Cache) []byte {
 }
 
 func createContract(t *testing.T, cache Cache, wasmFile string) []byte {
-	wasm, err := ioutil.ReadFile(wasmFile)
+	wasm, err := os.ReadFile(wasmFile)
 	require.NoError(t, err)
-	checksum, err := Create(cache, wasm)
+	checksum, err := StoreCode(cache, wasm)
 	require.NoError(t, err)
 	return checksum
 }
 
 // exec runs the handle tx with the given signer
-func exec(t *testing.T, cache Cache, checksum []byte, signer types.HumanAddress, store KVStore, api *GoAPI, querier Querier, gasExpected uint64) types.ContractResult {
+func exec(t *testing.T, cache Cache, checksum []byte, signer types.HumanAddress, store types.KVStore, api *types.GoAPI, querier Querier, gasExpected uint64) types.ContractResult {
 	gasMeter := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter := GasMeter(gasMeter)
+	igasMeter := types.GasMeter(gasMeter)
 	env := MockEnvBin(t)
 	info := MockInfoBin(t, signer)
 	res, cost, err := Execute(cache, checksum, env, info, []byte(`{"release":{}}`), &igasMeter, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
 	require.NoError(t, err)
-	assert.Equal(t, gasExpected, cost)
+	assert.Equal(t, gasExpected, cost.UsedInternally)
 
 	var result types.ContractResult
 	err = json.Unmarshal(res, &result)
@@ -813,11 +933,11 @@ func exec(t *testing.T, cache Cache, checksum []byte, signer types.HumanAddress,
 func TestQuery(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	// set up contract
 	gasMeter1 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter1 := GasMeter(gasMeter1)
+	igasMeter1 := types.GasMeter(gasMeter1)
 	store := NewLookup(gasMeter1)
 	api := NewMockAPI()
 	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, types.Coins{types.NewCoin(100, "ATOM")})
@@ -829,7 +949,7 @@ func TestQuery(t *testing.T) {
 
 	// invalid query
 	gasMeter2 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter2 := GasMeter(gasMeter2)
+	igasMeter2 := types.GasMeter(gasMeter2)
 	store.SetGasMeter(gasMeter2)
 	query := []byte(`{"Raw":{"val":"config"}}`)
 	data, _, err := Query(cache, checksum, env, query, &igasMeter2, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
@@ -841,7 +961,7 @@ func TestQuery(t *testing.T) {
 
 	// make a valid query
 	gasMeter3 := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter3 := GasMeter(gasMeter3)
+	igasMeter3 := types.GasMeter(gasMeter3)
 	store.SetGasMeter(gasMeter3)
 	query = []byte(`{"verifier":{}}`)
 	data, _, err = Query(cache, checksum, env, query, &igasMeter3, store, api, &querier, TESTING_GAS_LIMIT, TESTING_PRINT_DEBUG)
@@ -856,11 +976,11 @@ func TestQuery(t *testing.T) {
 func TestHackatomQuerier(t *testing.T) {
 	cache, cleanup := withCache(t)
 	defer cleanup()
-	checksum := createTestContract(t, cache)
+	checksum := createHackatomContract(t, cache)
 
 	// set up contract
 	gasMeter := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter := GasMeter(gasMeter)
+	igasMeter := types.GasMeter(gasMeter)
 	store := NewLookup(gasMeter)
 	api := NewMockAPI()
 	initBalance := types.Coins{types.NewCoin(1234, "ATOM"), types.NewCoin(65432, "ETH")}
@@ -878,6 +998,7 @@ func TestHackatomQuerier(t *testing.T) {
 	require.Equal(t, "", qres.Err)
 	var balances types.AllBalancesResponse
 	err = json.Unmarshal(qres.Ok, &balances)
+	require.NoError(t, err)
 	require.Equal(t, balances.Amount, initBalance)
 }
 
@@ -902,13 +1023,13 @@ func TestCustomReflectQuerier(t *testing.T) {
 
 	// set up contract
 	gasMeter := NewMockGasMeter(TESTING_GAS_LIMIT)
-	igasMeter := GasMeter(gasMeter)
+	igasMeter := types.GasMeter(gasMeter)
 	store := NewLookup(gasMeter)
 	api := NewMockAPI()
 	initBalance := types.Coins{types.NewCoin(1234, "ATOM")}
 	querier := DefaultQuerier(MOCK_CONTRACT_ADDR, initBalance)
 	// we need this to handle the custom requests from the reflect contract
-	innerQuerier := querier.(MockQuerier)
+	innerQuerier := querier.(*MockQuerier)
 	innerQuerier.Custom = ReflectCustom{}
 	querier = Querier(innerQuerier)
 
