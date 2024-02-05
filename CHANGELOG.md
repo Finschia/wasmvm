@@ -4,6 +4,7 @@
 
 ### Features
 * bump up wasmvm from v1.1.1 to v1.4.1 ([#136](https://github.com/Finschia/wasmvm/pull/136))
+* bump up wasmvm from v1.1.1 to v1.5.0 ([#138](https://github.com/Finschia/wasmvm/pull/138))
 
 ## [[1.1.1-0.11.6](https://github.com/Finschia/wasmvm/compare/v1.1.1+0.11.5...v1.1.1-0.11.6)] - 2023-10-18
 ### Changes
