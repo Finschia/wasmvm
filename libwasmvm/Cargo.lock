@@ -261,7 +261,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-crypto"
 version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.0#40fe43511747f0bf88dc8e284fab9b3d27d616c4"
+source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.1#51a18206ffc9e620a2ca0832facc1d6c2ed8b0c0"
 dependencies = [
  "digest 0.10.7",
  "ecdsa",
@@ -275,7 +275,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-derive"
 version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.0#40fe43511747f0bf88dc8e284fab9b3d27d616c4"
+source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.1#51a18206ffc9e620a2ca0832facc1d6c2ed8b0c0"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -286,7 +286,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-std"
 version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.0#40fe43511747f0bf88dc8e284fab9b3d27d616c4"
+source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.1#51a18206ffc9e620a2ca0832facc1d6c2ed8b0c0"
 dependencies = [
  "base64",
  "bech32",
@@ -308,7 +308,7 @@ dependencies = [
 [[package]]
 name = "cosmwasm-vm"
 version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.0#40fe43511747f0bf88dc8e284fab9b3d27d616c4"
+source = "git+https://github.com/Finschia/cosmwasm?branch=feat/bump_1.5.1#51a18206ffc9e620a2ca0832facc1d6c2ed8b0c0"
 dependencies = [
  "bitflags",
  "bytecheck",
@@ -682,9 +682,9 @@ checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
 
 [[package]]
 name = "elliptic-curve"
-version = "0.13.5"
+version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "968405c8fdc9b3bf4df0a6638858cc0b52462836ab6b1c87377785dd09cf1c0b"
+checksum = "b5e6043086bf7973472e0c7dff2142ea0b680d30e18d9cc40f267efbf222bd47"
 dependencies = [
  "base16ct",
  "crypto-bigint",
@@ -1006,9 +1006,9 @@ dependencies = [
 
 [[package]]
 name = "k256"
-version = "0.13.1"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cadb76004ed8e97623117f3df85b17aaa6626ab0b0831e6573f104df16cd1bcc"
+checksum = "956ff9b67e26e1a6a866cb758f12c6f8746208489e3e4a4b5580802f2f0a587b"
 dependencies = [
  "cfg-if",
  "ecdsa",
@@ -1145,9 +1145,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
+checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "opaque-debug"
@@ -1460,9 +1460,9 @@ dependencies = [
 
 [[package]]
 name = "self_cell"
-version = "1.0.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c309e515543e67811222dbc9e3dd7e1056279b782e1dacffe4242b718734fb6"
+checksum = "58bf37232d3bb9a2c4e641ca2a11d83b5062066f88df7fed36c28772046d65ba"
 
 [[package]]
 name = "serde"
@@ -2283,6 +2283,6 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.6.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a0956f1ba7c7909bfb66c2e9e4124ab6f6482560f6628b5aaeba39207c9aad9"
+checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
