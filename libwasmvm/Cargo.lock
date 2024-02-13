@@ -223,8 +223,8 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.8.1#344858de73055acae78d7146c57abe4318631cf3"
+version = "1.1.9+0.9.0"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.9.0#516512fbb743d8625cda072d6e5ac307b99ff5aa"
 dependencies = [
  "digest 0.10.6",
  "ed25519-zebra",
@@ -236,8 +236,8 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.8.1#344858de73055acae78d7146c57abe4318631cf3"
+version = "1.1.9+0.9.0"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.9.0#516512fbb743d8625cda072d6e5ac307b99ff5aa"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -247,8 +247,8 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.8.1#344858de73055acae78d7146c57abe4318631cf3"
+version = "1.1.9+0.9.0"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.9.0#516512fbb743d8625cda072d6e5ac307b99ff5aa"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -266,8 +266,8 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "1.1.9+0.8.1"
-source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.8.1#344858de73055acae78d7146c57abe4318631cf3"
+version = "1.1.9+0.9.0"
+source = "git+https://github.com/Finschia/cosmwasm?tag=v1.1.9+0.9.0#516512fbb743d8625cda072d6e5ac307b99ff5aa"
 dependencies = [
  "bitflags",
  "bytecheck",
@@ -1032,9 +1032,9 @@ checksum = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee"
 
 [[package]]
 name = "parity-wasm"
-version = "0.42.2"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be5e13c266502aadf83426d87d81a0f5d1ef45b8027f5a471c360abfe4bfae92"
+checksum = "e1ad0aff30c1da14b1254fcb2af73e1fa9a28670e584a626f53a369d0e157304"
 
 [[package]]
 name = "pin-project-lite"
