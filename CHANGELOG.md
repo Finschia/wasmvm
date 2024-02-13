@@ -1,5 +1,14 @@
 # Changelog
 
+
+## [[1.1.1-0.12.0](https://github.com/Finschia/wasmvm/compare/v1.1.1-0.11.6...1.1.1-0.12.0)] - 2024-02-13
+
+### Changes
+* update imported cosmwasm ([#140](https://github.com/Finschia/wasmvm/pull/140))
+
+### Fixes
+* fix bot login name ([#134](https://github.com/Finschia/wasmvm/pull/134))
+
 ## [[1.1.1-0.11.6](https://github.com/Finschia/wasmvm/compare/v1.1.1+0.11.5...v1.1.1-0.11.6)] - 2023-10-18
 ### Changes
 * revert: use pre-release versioning and set version to 1.1.1-0.11.6 ([#130](https://github.com/Finschia/wasmvm/pull/130))
