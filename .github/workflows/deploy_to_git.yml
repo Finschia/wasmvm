@@ -127,7 +127,7 @@ jobs:
         run: |
           git config user.name  "finschia-auto-pr[bot]"
           git config user.email "141415241+finschia-auto-pr[bot]@users.noreply.github.com"
-          git commit -m "chore: auto generate shared library"
+          git commit -m "build: auto generate shared library"
       - name: Create pull request
         if: steps.cd.outputs.need_update=='true'
         id: cpr
@@ -138,7 +138,7 @@ jobs:
           branch: auto_shared_library_${{ steps.prn.outputs.latest_pr_number }}
           base: ${{ github.ref_name }}
           delete-branch: true
-          title: 'chore: (auto)update shared library'
+          title: 'build: (auto)update shared library'
           body: |
             # Description
             Update shared library
