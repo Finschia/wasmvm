@@ -107,7 +107,7 @@ jobs:
       - name: Run shellcheck
         run: ./devtools/check_shellscript_lint.sh
 
-  test_internal_shared_lib:
+  test_internal_shared_lib_on_auto_build_pr:
     if: ${{ github.event.pusher.name == 'finschia-auto-pr[bot]' }}
     runs-on: ubuntu-latest
     env:
