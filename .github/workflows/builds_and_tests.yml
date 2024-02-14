@@ -108,6 +108,7 @@ jobs:
         run: ./devtools/check_shellscript_lint.sh
 
   test_internal_shared_lib:
+    if: ${{ github.event.pusher.name == 'finschia-auto-pr[bot]' }}
     runs-on: ubuntu-latest
     env:
       GORACE: "halt_on_error=1"
