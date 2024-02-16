@@ -23,7 +23,7 @@ jobs:
       # and .dll builds are not deterministic.
       # Deactivating this step to avoid polluting the git hostory.
         os: [linux, macos]
-        include: 
+        include:
           - os: linux
             dockerfile_name: centos7
             shared_library_extension: so
@@ -115,7 +115,7 @@ jobs:
           gh pr list --state open --json author,number | jq -r '.[] | select(.author.login == "app/finschia-auto-pr") | .number' | while read -r pr_number; do
             gh pr close -d -c "This pr is out of date." $pr_number
           done
-        env: 
+        env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
       - name: Get latest PR
         id: prn
@@ -127,7 +127,7 @@ jobs:
         run: |
           git config user.name  "finschia-auto-pr[bot]"
           git config user.email "141415241+finschia-auto-pr[bot]@users.noreply.github.com"
-          git commit -m "chore: auto generate shared library"
+          git commit -m "build: auto generate shared library"
       - name: Create pull request
         if: steps.cd.outputs.need_update=='true'
         id: cpr
@@ -138,7 +138,7 @@ jobs:
           branch: auto_shared_library_${{ steps.prn.outputs.latest_pr_number }}
           base: ${{ github.ref_name }}
           delete-branch: true
-          title: 'chore: (auto)update shared library'
+          title: 'build: (auto)update shared library'
           body: |
             # Description
             Update shared library
@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build_shared_library, deploy_to_git]
     if: |
-      always() && 
+      always() &&
       ( needs.build_shared_library.result=='success' || needs.build_shared_library.result=='skipped' ) &&
       ( github.event.pusher.name == 'finschia-auto-pr[bot]' || needs.deploy_to_git.outputs.updated=='false' )
     outputs:
@@ -195,7 +195,7 @@ jobs:
     name: Push Tag
     needs: [build_shared_library, get-version]
     if: |
-      always() && 
+      always() &&
       ( needs.build_shared_library.result=='success' || needs.build_shared_library.result=='skipped' ) &&
       ( needs.get-version.outputs.package-version != needs.get-version.outputs.latest-tag )
     runs-on: ubuntu-latest
@@ -210,7 +210,7 @@ jobs:
     name: Update releases
     needs: [build_shared_library, push-tag]
     if: |
-      always() && 
+      always() &&
       ( needs.build_shared_library.result=='success' || needs.build_shared_library.result=='skipped' ) &&
       ( needs.push-tag.result=='success' )
     runs-on: ubuntu-latest
