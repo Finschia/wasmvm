@@ -108,7 +108,7 @@ jobs:
         run: ./devtools/check_shellscript_lint.sh
 
   test_internal_shared_lib_on_auto_build_pr:
-    if: ${{ github.event.pusher.name == 'finschia-auto-pr[bot]' }}
+    if: ${{ github.event.pull_request.user.login == 'finschia-auto-pr[bot]' }}
     runs-on: ubuntu-latest
     env:
       GORACE: "halt_on_error=1"
