@@ -208,7 +208,7 @@ jobs:
 
   update-releases:
     name: Update releases
-    needs: [build_shared_library, push-tag]
+    needs: [build_shared_library, get-version, push-tag]
     if: |
       always() &&
       ( needs.build_shared_library.result=='success' || needs.build_shared_library.result=='skipped' ) &&
